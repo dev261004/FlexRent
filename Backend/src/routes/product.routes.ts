@@ -6,7 +6,19 @@ import {
   listProducts,
   updateProduct,
 } from "../controllers/product.controller";
+import {
+  deleteProductImage,
+  listProductImages,
+  reorderProductImages,
+  setPrimaryProductImage,
+  uploadProductImages,
+} from "../controllers/product-image.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
+import {
+  PRODUCT_IMAGE_FIELD_NAME,
+  PRODUCT_IMAGE_MAX_FILES,
+  productImageUpload,
+} from "../middleware/product-image-upload.middleware";
 
 const router = Router();
 
@@ -282,6 +294,194 @@ router.get("/", listProducts);
  *         description: Product slug, SKU, asset tag, barcode, or QR code already exists
  */
 router.post("/", requireRole(["ADMIN", "VENDOR"]), createProduct);
+
+/**
+ * @swagger
+ * /api/products/{productId}/images:
+ *   post:
+ *     summary: Upload product images
+ *     description: Upload up to 10 jpg, jpeg, png, or webp images. Admin can upload for any product; vendor only for their own product.
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - images
+ *             properties:
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               altText:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Product images uploaded successfully
+ *       400:
+ *         description: Validation or upload error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product not found
+ */
+router.post(
+  "/:productId/images",
+  requireRole(["ADMIN", "VENDOR"]),
+  productImageUpload.array(PRODUCT_IMAGE_FIELD_NAME, PRODUCT_IMAGE_MAX_FILES),
+  uploadProductImages
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/images:
+ *   get:
+ *     summary: List product images
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product images fetched successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Product not found
+ */
+router.get("/:productId/images", listProductImages);
+
+/**
+ * @swagger
+ * /api/products/images/{imageId}/primary:
+ *   patch:
+ *     summary: Set primary product image
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Primary product image updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product image not found
+ */
+router.patch(
+  "/images/:imageId/primary",
+  requireRole(["ADMIN", "VENDOR"]),
+  setPrimaryProductImage
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/images/order:
+ *   patch:
+ *     summary: Reorder product images
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - images
+ *             properties:
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - imageId
+ *                     - sortOrder
+ *                   properties:
+ *                     imageId:
+ *                       type: string
+ *                     sortOrder:
+ *                       type: integer
+ *     responses:
+ *       200:
+ *         description: Product image order updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product not found
+ */
+router.patch(
+  "/:productId/images/order",
+  requireRole(["ADMIN", "VENDOR"]),
+  reorderProductImages
+);
+
+/**
+ * @swagger
+ * /api/products/images/{imageId}:
+ *   delete:
+ *     summary: Delete product image
+ *     description: Deletes the database record and physical uploaded file.
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product image deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product image not found
+ */
+router.delete(
+  "/images/:imageId",
+  requireRole(["ADMIN", "VENDOR"]),
+  deleteProductImage
+);
 
 /**
  * @swagger
