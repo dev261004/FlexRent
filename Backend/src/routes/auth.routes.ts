@@ -1,11 +1,13 @@
 import { Router } from "express";
 import {
+  forgotPassword,
   login,
   logout,
   me,
   refresh,
   register,
   registerVendor,
+  resetPassword,
   updateProfile,
 } from "../controllers/auth.controller";
 import { verifyJWT } from "../middleware/auth.middleware";
@@ -110,9 +112,66 @@ router.post("/register", register);
  *       400:
  *         description: Validation error
  *       409:
- *         description: Email, password, or GST number already exists
+ *         description: Email or GST number already exists
  */
 router.post("/vendor/register", registerVendor);
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Send password reset email
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Password reset email sent
+ *       404:
+ *         description: Account does not exist
+ */
+router.post("/forgot-password", forgotPassword);
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Reset password using emailed token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - password
+ *               - confirmPassword
+ *             properties:
+ *               token:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               confirmPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired reset token
+ */
+router.post("/reset-password", resetPassword);
 
 /**
  * @swagger

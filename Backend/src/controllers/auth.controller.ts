@@ -4,6 +4,7 @@ import { env } from "../config/env";
 import { prisma } from "../config/prisma";
 import { AppError, asyncHandler } from "../middleware/error.middleware";
 import { AppRole } from "../types/roles";
+import { sendPasswordResetEmail } from "../utils/mailer";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -13,11 +14,18 @@ import {
   verifyRefreshToken,
 } from "../utils/jwt";
 import { mapUserToPublicUser } from "../utils/mappers";
-import { hashPassword, verifyPassword } from "../utils/password";
 import {
+  createPasswordResetToken,
+  hashPassword,
+  hashPasswordResetToken,
+  verifyPassword,
+} from "../utils/password";
+import {
+  forgotPasswordSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
+  resetPasswordSchema,
   updateProfileSchema,
   vendorRegisterSchema,
 } from "../utils/validation";
@@ -40,6 +48,12 @@ const setRefreshTokenCookie = (res: Response, token: string): void => {
 
 const clearRefreshTokenCookie = (res: Response): void => {
   res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions);
+};
+
+const createPasswordResetUrl = (token: string): string => {
+  const resetUrl = new URL("/reset-password", env.CLIENT_URL);
+  resetUrl.searchParams.set("token", token);
+  return resetUrl.toString();
 };
 
 const createUserSession = async (user: Pick<User, "id" | "email" | "role">) => {
@@ -180,6 +194,123 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     },
   });
 });
+
+export const forgotPassword = asyncHandler(
+  async (req: Request, res: Response) => {
+    const payload = forgotPasswordSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({
+      where: { email: payload.email },
+    });
+
+    if (!user) {
+      throw new AppError(404, "Account not found. Please create an account first.", {
+        email: "No account exists with this email",
+      });
+    }
+
+    if (user.status !== "ACTIVE") {
+      throw new AppError(403, "This account is disabled");
+    }
+
+    const token = createPasswordResetToken();
+    const tokenHash = hashPasswordResetToken(token);
+    const expiresAt = new Date(
+      Date.now() + env.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES * 60 * 1000
+    );
+
+    await prisma.$transaction([
+      prisma.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          usedAt: null,
+        },
+        data: {
+          usedAt: new Date(),
+        },
+      }),
+      prisma.passwordResetToken.create({
+        data: {
+          tokenHash,
+          userId: user.id,
+          expiresAt,
+        },
+      }),
+    ]);
+
+    await sendPasswordResetEmail({
+      to: user.email,
+      name: user.firstName,
+      resetUrl: createPasswordResetUrl(token),
+      expiresInMinutes: env.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES,
+    });
+
+    res.json({
+      success: true,
+      message: "Password reset link has been sent to your email",
+      data: null,
+    });
+  }
+);
+
+export const resetPassword = asyncHandler(
+  async (req: Request, res: Response) => {
+    const payload = resetPasswordSchema.parse(req.body);
+    const tokenHash = hashPasswordResetToken(payload.token);
+
+    const resetToken = await prisma.passwordResetToken.findFirst({
+      where: {
+        tokenHash,
+        usedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!resetToken) {
+      throw new AppError(400, "Reset link is invalid or expired");
+    }
+
+    if (resetToken.user.status !== "ACTIVE") {
+      throw new AppError(403, "This account is disabled");
+    }
+
+    const passwordHash = await hashPassword(payload.password);
+    const usedAt = new Date();
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: resetToken.userId },
+        data: { passwordHash },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt },
+      }),
+      prisma.refreshToken.updateMany({
+        where: {
+          userId: resetToken.userId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: usedAt,
+        },
+      }),
+    ]);
+
+    clearRefreshTokenCookie(res);
+
+    res.json({
+      success: true,
+      message: "Password reset successful. Please log in again.",
+      data: null,
+    });
+  }
+);
 
 export const refresh = asyncHandler(async (req: Request, res: Response) => {
   const payload = refreshSchema.parse(req.body);

@@ -22,7 +22,16 @@ const envSchema = z.object({
     .default("development-refresh-secret-change-me"),
   ACCESS_TOKEN_EXPIRY: z.string().min(1).default("15m"),
   REFRESH_TOKEN_EXPIRY: z.string().min(1).default("7d"),
+  PASSWORD_RESET_TOKEN_EXPIRY_MINUTES: z.coerce.number().int().positive().default(15),
   CLIENT_URL: z.string().url().default("http://localhost:3000"),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z
+    .preprocess((value) => value === "true" || value === true, z.boolean())
+    .default(false),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().default("FlexRent <no-reply@flexrent.local>"),
 });
 
 const parsedEnv = envSchema.parse(process.env);

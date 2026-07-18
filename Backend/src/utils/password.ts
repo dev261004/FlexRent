@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { createHash, randomBytes } from "crypto";
 
 const SALT_ROUNDS = 12;
 
@@ -11,4 +12,12 @@ export const verifyPassword = (
   passwordHash: string
 ): Promise<boolean> => {
   return bcrypt.compare(password, passwordHash);
+};
+
+export const createPasswordResetToken = (): string => {
+  return randomBytes(32).toString("hex");
+};
+
+export const hashPasswordResetToken = (token: string): string => {
+  return createHash("sha256").update(token).digest("hex");
 };

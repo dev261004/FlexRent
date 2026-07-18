@@ -86,6 +86,30 @@ export const loginSchema = z.object({
   password: z.string({ required_error: "Password is required" }).min(1),
 });
 
+export const forgotPasswordSchema = z
+  .object({
+    email: z
+      .string({ required_error: "Email is required" })
+      .trim()
+      .toLowerCase()
+      .email("Enter a valid email address"),
+  })
+  .strict();
+
+export const resetPasswordSchema = z
+  .object({
+    token: z
+      .string({ required_error: "Reset token is required" })
+      .trim()
+      .min(1, "Reset token is required"),
+    password: passwordSchema,
+    confirmPassword: z.string({
+      required_error: "Confirm password is required",
+    }),
+  })
+  .strict()
+  .superRefine(requireMatchingPasswords);
+
 export const refreshSchema = z.object({
   refreshToken: optionalText(2000),
 });
