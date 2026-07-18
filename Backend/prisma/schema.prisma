@@ -22,7 +22,6 @@ model User {
   id                  String         @id @default(cuid())
   email               String         @unique
   passwordHash        String
-  passwordFingerprint String         @unique
   role                Role           @default(CUSTOMER)
   status              UserStatus     @default(ACTIVE)
   firstName           String

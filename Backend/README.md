@@ -41,12 +41,10 @@ The same routes are also available under `/api/auth`.
 ## Signup Validation
 
 - Email must be valid and unique.
-- Password must be unique.
 - Password must be 6-12 characters.
 - Password must include at least one uppercase letter, one lowercase letter, one number, and one special character.
 - Password and confirm password must match.
-
-Password uniqueness is enforced with a secret HMAC fingerprint. Raw passwords are never stored.
+Raw passwords are never stored. The API stores only bcrypt password hashes.
 
 ## Token Flow
 

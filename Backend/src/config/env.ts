@@ -20,7 +20,6 @@ const envSchema = z.object({
     .string()
     .min(16)
     .default("development-refresh-secret-change-me"),
-  PASSWORD_FINGERPRINT_SECRET: z.string().min(16).optional(),
   ACCESS_TOKEN_EXPIRY: z.string().min(1).default("15m"),
   REFRESH_TOKEN_EXPIRY: z.string().min(1).default("7d"),
   CLIENT_URL: z.string().url().default("http://localhost:3000"),
@@ -30,6 +29,4 @@ const parsedEnv = envSchema.parse(process.env);
 
 export const env = {
   ...parsedEnv,
-  PASSWORD_FINGERPRINT_SECRET:
-    parsedEnv.PASSWORD_FINGERPRINT_SECRET ?? parsedEnv.JWT_REFRESH_SECRET,
 };

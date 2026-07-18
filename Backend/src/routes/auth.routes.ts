@@ -58,7 +58,7 @@ const router = Router();
  *       400:
  *         description: Validation error
  *       409:
- *         description: Email or password already exists
+ *         description: Email already exists
  */
 router.post("/register", register);
 

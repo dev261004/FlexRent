@@ -69,7 +69,6 @@ export const errorHandler: ErrorRequestHandler = (
         : ["field"];
       const uniqueMessages: Record<string, string> = {
         email: "Email already exists",
-        passwordFingerprint: "Password already exists",
         gstNumber: "GST number already exists",
       };
       const message =

@@ -13,11 +13,7 @@ import {
   verifyRefreshToken,
 } from "../utils/jwt";
 import { mapUserToPublicUser } from "../utils/mappers";
-import {
-  createPasswordFingerprint,
-  hashPassword,
-  verifyPassword,
-} from "../utils/password";
+import { hashPassword, verifyPassword } from "../utils/password";
 import {
   loginSchema,
   refreshSchema,
@@ -74,22 +70,6 @@ const assertEmailIsUnique = async (email: string): Promise<void> => {
   }
 };
 
-const assertPasswordIsUnique = async (password: string): Promise<string> => {
-  const passwordFingerprint = createPasswordFingerprint(password);
-  const existingPassword = await prisma.user.findUnique({
-    where: { passwordFingerprint },
-    select: { id: true },
-  });
-
-  if (existingPassword) {
-    throw new AppError(409, "Password already exists", {
-      password: "Choose a different password",
-    });
-  }
-
-  return passwordFingerprint;
-};
-
 type AccountRole = Extract<AppRole, "CUSTOMER" | "VENDOR">;
 
 type RegisterAccountPayload = {
@@ -109,14 +89,12 @@ const createRegisteredAccount = async (
   role: AccountRole
 ) => {
   await assertEmailIsUnique(payload.email);
-  const passwordFingerprint = await assertPasswordIsUnique(payload.password);
   const passwordHash = await hashPassword(payload.password);
 
   return prisma.user.create({
     data: {
       email: payload.email,
       passwordHash,
-      passwordFingerprint,
       role,
       firstName: payload.firstName,
       lastName: payload.lastName ?? null,
