@@ -23,8 +23,7 @@ export function useLogin() {
     setPending(true);
     try {
       const response = await login(data);
-      localStorage.setItem("access_token", response.access_token);
-      localStorage.setItem("refresh_token", response.refresh_token);
+      localStorage.setItem("access_token", response.accessToken);
       router.push("/dashboard");
     } finally {
       setPending(false);
@@ -42,8 +41,7 @@ export function useSignup() {
     setPending(true);
     try {
       const response = await signup(data);
-      localStorage.setItem("access_token", response.access_token);
-      localStorage.setItem("refresh_token", response.refresh_token);
+      localStorage.setItem("access_token", response.accessToken);
       router.push("/dashboard");
     } finally {
       setPending(false);
@@ -61,8 +59,7 @@ export function useVendorSignup() {
     setPending(true);
     try {
       const response = await vendorSignup(data);
-      localStorage.setItem("access_token", response.access_token);
-      localStorage.setItem("refresh_token", response.refresh_token);
+      localStorage.setItem("access_token", response.accessToken);
       router.push("/dashboard");
     } finally {
       setPending(false);
