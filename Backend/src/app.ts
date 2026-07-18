@@ -10,6 +10,7 @@ import {
   notFoundHandler,
 } from "./middleware/error.middleware";
 import authRoutes from "./routes/auth.routes";
+import categoryRoutes from "./routes/category.routes";
 import productRoutes from "./routes/product.routes";
 
 export const app = express();
@@ -35,6 +36,8 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/api/auth", authRoutes);
 app.use("/auth", authRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/products", productRoutes);
 
