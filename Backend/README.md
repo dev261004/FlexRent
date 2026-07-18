@@ -1,52 +1,65 @@
-# Rental Management — Backend (Auth Module)
+# Rental Management - Backend Auth Module
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env   # fill in real DATABASE_URL and JWT secrets
-npx prisma migrate dev --name init
+cp .env.example .env
+npx prisma generate
+npx prisma migrate dev --name init_auth
 npm run dev
 ```
 
-Server runs on `http://localhost:5000` by default. Health check: `GET /api/health`.
+Server runs on `http://localhost:5000` by default.
+
+Health check:
+
+```http
+GET /api/health
+```
 
 ## Auth Endpoints
 
 | Method | Route | Auth required | Description |
 |---|---|---|---|
-| POST | `/auth/register` | No | Create a new CUSTOMER account |
-| POST | `/auth/login` | No | Log in, returns access token + sets refresh cookie |
-| POST | `/auth/refresh` | Refresh cookie | Rotates tokens, returns new access token |
-| POST | `/auth/logout` | Refresh cookie | Invalidates refresh token |
+| POST | `/auth/register` | No | Create a customer, vendor, or guarded admin account |
+| POST | `/auth/login` | No | Log in and receive an access token |
+| POST | `/auth/refresh` | Refresh cookie | Rotate refresh token and receive a new access token |
+| POST | `/auth/logout` | Refresh cookie | Revoke refresh token and clear cookie |
 | GET | `/auth/me` | Bearer token | Get current user profile |
-| PUT | `/auth/profile` | Bearer token | Update name/phone/profileImage |
+| PUT | `/auth/profile` | Bearer token | Update profile fields |
 
-## How tokens work
+The same routes are also available under `/api/auth`.
 
-- **Access token**: short-lived (15 min), sent in `Authorization: Bearer <token>` header on every protected request. Frontend stores this in memory/state — NOT localStorage (XSS risk).
-- **Refresh token**: long-lived (7 days), stored as an `httpOnly` cookie automatically. The browser sends it automatically to `/auth/refresh`. Frontend never touches it directly.
-- When an API call returns 401, frontend should call `POST /auth/refresh` (credentials: 'include') to get a new access token, then retry the original request.
+## Roles
 
-## Using the middleware in new routes
+- `CUSTOMER`: portal user. The API also accepts `USER` and stores it as `CUSTOMER`.
+- `VENDOR`: vendor signup requires company, product category, and GST number.
+- `ADMIN`: admin signup requires `ADMIN_REGISTRATION_KEY`.
+
+## Signup Validation
+
+- Email must be valid and unique.
+- Password must be unique.
+- Password must be 6-12 characters.
+- Password must include at least one uppercase letter, one lowercase letter, one number, and one special character.
+- Password and confirm password must match.
+
+Password uniqueness is enforced with a secret HMAC fingerprint. Raw passwords are never stored.
+
+## Token Flow
+
+- Access token: short lived, sent in `Authorization: Bearer <token>`.
+- Refresh token: stored in an `httpOnly` cookie and rotated on `/auth/refresh`.
+- Frontend requests that rely on the refresh cookie must send credentials.
 
 ```ts
-import { verifyJWT, requireRole } from "../middleware/auth.middleware";
-
-// Any logged-in user
-router.get("/orders", verifyJWT, getMyOrders);
-
-// Admin only
-router.post("/products", verifyJWT, requireRole(["ADMIN"]), createProduct);
+fetch("/api/auth/refresh", {
+  method: "POST",
+  credentials: "include",
+});
 ```
 
-## Frontend integration notes
+## Next Modules
 
-- Copy `src/types/auth.types.ts` into the frontend repo (or extract into a shared package) so both sides use identical request/response shapes.
-- CORS is configured with `credentials: true` — frontend fetch/axios calls MUST set `credentials: 'include'` for the refresh cookie to work.
-- All error responses follow: `{ success: false, message: string, errors?: Record<string,string> }`.
-- All success responses from `/auth/*` return the shapes defined in `auth.types.ts` (e.g. `LoginResponse`, `MeResponse`).
-
-## Next modules to build on this foundation
-
-Product & Pricelist → Cart/Order/Quotation → Payment & Deposit → Late Fee Engine → Pickup/Return → Dashboard Analytics (see full plan in chat).
+Product & Pricelist -> Cart/Order/Quotation -> Payment & Deposit -> Late Fee Engine -> Pickup/Return -> Dashboard Analytics.
