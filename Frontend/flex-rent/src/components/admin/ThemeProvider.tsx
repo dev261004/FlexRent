@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -30,16 +29,10 @@ export function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const initial: Theme = stored === "light" ? "light" : "dark";
-    setThemeState(initial);
-    applyTheme(initial);
-    setReady(true);
-  }, []);
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "dark";
+    return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  });
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
@@ -57,8 +50,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ theme, setTheme, toggleTheme, ready }),
-    [theme, setTheme, toggleTheme, ready]
+    () => ({ theme, setTheme, toggleTheme, ready: true }),
+    [theme, setTheme, toggleTheme]
   );
 
   return (

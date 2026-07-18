@@ -16,6 +16,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try { const theme = localStorage.getItem("flexrent-theme") === "light" ? "light" : "dark"; document.documentElement.dataset.theme = theme; document.documentElement.classList.toggle("dark", theme === "dark"); } catch { document.documentElement.dataset.theme = "dark"; document.documentElement.classList.add("dark"); }`,
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"

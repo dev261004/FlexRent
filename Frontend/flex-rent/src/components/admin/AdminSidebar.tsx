@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -18,9 +18,11 @@ import {
   X,
   IndianRupee,
   Palette,
+  LogOut,
 } from "lucide-react";
-import { useEffect, useState, type ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 import { ThemeToggle } from "@/components/admin/ThemeToggle";
+import { useAuth } from "@/contexts/AuthContext";
 
 type NavLeaf = {
   href: string;
@@ -143,10 +145,6 @@ function CollapsibleGroup({
   const [expanded, setExpanded] = useState(true);
   const Icon = group.icon;
 
-  useEffect(() => {
-    if (hasActive) setExpanded(true);
-  }, [hasActive]);
-
   return (
     <div className="space-y-1">
       <button
@@ -185,7 +183,15 @@ function CollapsibleGroup({
 
 function SidebarSettings({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
   const settingsActive = pathname === "/admin/account";
+
+  const handleLogout = () => {
+    logout();
+    onNavigate?.();
+    router.replace("/login");
+  };
 
   return (
     <div className="space-y-2 border-t border-border px-3 py-4">
@@ -207,6 +213,15 @@ function SidebarSettings({ onNavigate }: { onNavigate?: () => void }) {
       </Link>
 
       <ThemeToggle compact />
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-chalk transition-colors hover:bg-danger/10 hover:text-danger"
+      >
+        <LogOut size={18} />
+        <span>Sign out</span>
+      </button>
     </div>
   );
 }
@@ -256,7 +271,7 @@ function SidebarPanel({
       <div className="border-b border-border px-5 py-6">
         <Link href="/admin/dashboard" onClick={onNavigate} className="block">
           <p className="font-display text-xl font-semibold text-text">
-            flexrent
+            Flexrent
           </p>
           <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
             Admin

@@ -19,17 +19,15 @@ import type {
 } from "../validation/authSchemas";
 
 function dashboardFor(role: string) {
-  if (role === "ADMIN") return "/admin/dashboard";
-  if (role === "VENDOR") return "/vendor/dashboard";
+  const normalizedRole = role.trim().toUpperCase();
+  if (normalizedRole === "ADMIN") return "/admin/dashboard";
+  if (normalizedRole === "VENDOR") return "/vendor/dashboard";
   return "/dashboard";
-}
-
-function redirectToDashboard(role: string) {
-  window.location.href = dashboardFor(role);
 }
 
 export function useLogin() {
   const { login: authLogin } = useAuth();
+  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   const mutate = async (data: LoginInput) => {
@@ -37,7 +35,7 @@ export function useLogin() {
     try {
       const response = await login(data);
       authLogin(response.accessToken, response.user);
-      redirectToDashboard(response.user.role);
+      router.replace(dashboardFor(response.user.role));
     } finally {
       setPending(false);
     }
@@ -47,15 +45,14 @@ export function useLogin() {
 }
 
 export function useSignup() {
-  const { login: authLogin } = useAuth();
+  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   const mutate = async (data: SignupInput) => {
     setPending(true);
     try {
-      const response = await signup(data);
-      authLogin(response.accessToken, response.user);
-      redirectToDashboard(response.user.role);
+      await signup(data);
+      router.replace("/login?registered=customer");
     } finally {
       setPending(false);
     }
@@ -65,15 +62,14 @@ export function useSignup() {
 }
 
 export function useVendorSignup() {
-  const { login: authLogin } = useAuth();
+  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   const mutate = async (data: VendorSignupInput) => {
     setPending(true);
     try {
-      const response = await vendorSignup(data);
-      authLogin(response.accessToken, response.user);
-      redirectToDashboard(response.user.role);
+      await vendorSignup(data);
+      router.replace("/login?registered=vendor");
     } finally {
       setPending(false);
     }
