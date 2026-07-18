@@ -11,6 +11,7 @@ import { PRODUCT_CATEGORIES } from "../data/productCategories";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Combobox } from "@/components/ui/Combobox";
+import axios from "axios";
 
 export function VendorSignupForm() {
   const { mutate, pending } = useVendorSignup();
@@ -30,10 +31,12 @@ export function VendorSignupForm() {
   const onSubmit = async (data: VendorSignupInput) => {
     try {
       await mutate(data);
-    } catch {
-      setError("root", {
-        message: "Registration failed. Please try again.",
-      });
+    } catch (err) {
+      const message =
+        axios.isAxiosError(err) && err.response?.data?.message
+          ? err.response.data.message
+          : "Registration failed. Please try again.";
+      setError("root", { message });
     }
   };
 
@@ -82,18 +85,26 @@ export function VendorSignupForm() {
         {...register("confirmPassword")}
       />
       <Input
-        id="businessName"
-        type="text"
-        placeholder="Company name"
-        error={errors.businessName?.message}
-        {...register("businessName")}
+        id="phone"
+        type="tel"
+        autoComplete="tel"
+        placeholder="Phone number"
+        error={errors.phone?.message}
+        {...register("phone")}
       />
       <Input
-        id="gstNo"
+        id="companyName"
+        type="text"
+        placeholder="Company name"
+        error={errors.companyName?.message}
+        {...register("companyName")}
+      />
+      <Input
+        id="gstNumber"
         type="text"
         placeholder="GST number"
-        error={errors.gstNo?.message}
-        {...register("gstNo")}
+        error={errors.gstNumber?.message}
+        {...register("gstNumber")}
       />
       <Combobox
         label="Product Category"

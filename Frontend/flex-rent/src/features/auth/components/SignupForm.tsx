@@ -1,67 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useSignup } from "../hooks/useAuthMutation";
 import { signupSchema, type SignupInput } from "../validation/authSchemas";
-import { checkEmail } from "../services/authApi";
-import { useDebounce } from "@/hooks/useDebounce";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 export function SignupForm() {
   const { mutate, pending } = useSignup();
-  const [emailStatus, setEmailStatus] = useState<
-    "idle" | "checking" | "available" | "unavailable"
-  >("idle");
-  const [emailError, setEmailError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
-    watch,
     setError,
-    clearErrors,
-    formState: { errors, dirtyFields },
+    formState: { errors },
   } = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
   });
-
-  const email = watch("email");
-  const debouncedEmail = useDebounce(email, 500);
-  const isEmailDirty = dirtyFields.email;
-
-  useEffect(() => {
-    if (!debouncedEmail || !isEmailDirty) return;
-    if (errors.email) return;
-
-    let cancelled = false;
-    setEmailStatus("checking");
-    setEmailError(null);
-
-    checkEmail(debouncedEmail)
-      .then((res) => {
-        if (cancelled) return;
-        if (!res.available) {
-          setEmailStatus("unavailable");
-          setEmailError("This email is already registered");
-          setError("email", { message: "This email is already registered" });
-        } else {
-          setEmailStatus("available");
-          clearErrors("email");
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setEmailStatus("idle");
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [debouncedEmail, isEmailDirty, errors.email, setError, clearErrors]);
 
   const onSubmit = async (data: SignupInput) => {
     try {
@@ -93,57 +50,14 @@ export function SignupForm() {
           {...register("lastName")}
         />
       </div>
-      <div className="relative">
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          placeholder="Email address"
-          error={errors.email?.message}
-          {...register("email")}
-        />
-        {(emailStatus === "checking" || emailStatus === "available") &&
-          isEmailDirty &&
-          !errors.email && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2">
-              {emailStatus === "checking" ? (
-                <svg
-                  className="h-4 w-4 animate-spin text-zinc-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="h-4 w-4 text-green-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              )}
-            </span>
-          )}
-      </div>
+      <Input
+        id="email"
+        type="email"
+        autoComplete="email"
+        placeholder="Email address"
+        error={errors.email?.message}
+        {...register("email")}
+      />
       <Input
         id="password"
         type="password"
@@ -161,11 +75,12 @@ export function SignupForm() {
         {...register("confirmPassword")}
       />
       <Input
-        id="couponCode"
-        type="text"
-        placeholder="Coupon code (optional)"
-        error={errors.couponCode?.message}
-        {...register("couponCode")}
+        id="phone"
+        type="tel"
+        autoComplete="tel"
+        placeholder="Phone number"
+        error={errors.phone?.message}
+        {...register("phone")}
       />
       {errors.root && (
         <p className="text-sm text-red-400">{errors.root.message}</p>

@@ -4,6 +4,7 @@ import type {
   SignupInput,
   VendorSignupInput,
   ResetPasswordInput,
+  UpdatePasswordInput,
 } from "../validation/authSchemas";
 
 export interface AuthResponse {
@@ -69,6 +70,17 @@ export async function resetPassword(
   const response = await api.post<{ message: string }>(
     "/auth/reset-password",
     data
+  );
+  return response.data;
+}
+
+export async function updatePassword(
+  token: string,
+  data: UpdatePasswordInput
+): Promise<{ message: string }> {
+  const response = await api.post<{ message: string }>(
+    "/auth/reset-password",
+    { token, ...data }
   );
   return response.data;
 }
