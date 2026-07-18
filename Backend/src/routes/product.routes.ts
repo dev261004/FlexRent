@@ -20,6 +20,13 @@ import {
   listProductAssets,
   updateProductAsset,
 } from "../controllers/product-asset.controller";
+import {
+  createProductVariant,
+  deleteProductVariant,
+  getProductVariantById,
+  listProductVariants,
+  updateProductVariant,
+} from "../controllers/product-variant.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
 import {
   createRentalConfig,
@@ -43,6 +50,8 @@ const router = Router();
  *     description: Rental configuration APIs for products
  *   - name: Product Assets
  *     description: Trackable product asset APIs
+ *   - name: Product Variants
+ *     description: Product variant APIs
  *
  * components:
  *   schemas:
@@ -121,6 +130,8 @@ const router = Router();
  *           format: date-time
  *     ProductVariantInput:
  *       type: object
+ *       required:
+ *         - attributeValueIds
  *       properties:
  *         sku:
  *           type: string
@@ -144,6 +155,41 @@ const router = Router();
  *           type: array
  *           items:
  *             type: string
+ *     ProductVariantResponse:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         productId:
+ *           type: string
+ *         name:
+ *           type: string
+ *           nullable: true
+ *         sku:
+ *           type: string
+ *           nullable: true
+ *         salesPrice:
+ *           type: string
+ *           nullable: true
+ *         costPrice:
+ *           type: string
+ *           nullable: true
+ *         quantityOnHand:
+ *           type: integer
+ *         isActive:
+ *           type: boolean
+ *         assetCount:
+ *           type: integer
+ *         values:
+ *           type: array
+ *           items:
+ *             type: object
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
  *     ProductRentalConfigInput:
  *       type: object
  *       required:
@@ -449,6 +495,217 @@ router.put(
   "/:productId/rental-config",
   requireRole(["ADMIN", "VENDOR"]),
   updateRentalConfig
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/variants:
+ *   post:
+ *     summary: Create product variant
+ *     description: Admin can create variants for any product. Vendor can create variants only for their own products.
+ *     tags: [Product Variants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductVariantInput'
+ *     responses:
+ *       201:
+ *         description: Product variant created successfully
+ *       400:
+ *         description: Validation error or invalid attribute values
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product not found
+ *       409:
+ *         description: Variant SKU or combination already exists
+ */
+router.post(
+  "/:productId/variants",
+  requireRole(["ADMIN", "VENDOR"]),
+  createProductVariant
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/variants:
+ *   get:
+ *     summary: List product variants
+ *     tags: [Product Variants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [name, sku, quantityOnHand, salesPrice, createdAt, updatedAt]
+ *           default: createdAt
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *     responses:
+ *       200:
+ *         description: Product variants fetched successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Vendor cannot access another vendor product
+ *       404:
+ *         description: Product not found
+ */
+router.get("/:productId/variants", listProductVariants);
+
+/**
+ * @swagger
+ * /api/products/{productId}/variants/{variantId}:
+ *   get:
+ *     summary: Get product variant by id
+ *     tags: [Product Variants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product variant fetched successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Vendor cannot access another vendor product
+ *       404:
+ *         description: Product variant not found
+ */
+router.get("/:productId/variants/:variantId", getProductVariantById);
+
+/**
+ * @swagger
+ * /api/products/{productId}/variants/{variantId}:
+ *   put:
+ *     summary: Update product variant
+ *     tags: [Product Variants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductVariantInput'
+ *     responses:
+ *       200:
+ *         description: Product variant updated successfully
+ *       400:
+ *         description: Validation error or invalid attribute values
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product variant not found
+ *       409:
+ *         description: Variant SKU or combination already exists
+ */
+router.put(
+  "/:productId/variants/:variantId",
+  requireRole(["ADMIN", "VENDOR"]),
+  updateProductVariant
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/variants/{variantId}:
+ *   delete:
+ *     summary: Delete product variant
+ *     description: Variant cannot be deleted when product assets reference it.
+ *     tags: [Product Variants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product variant deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product variant not found
+ *       409:
+ *         description: Variant is referenced by product assets
+ */
+router.delete(
+  "/:productId/variants/:variantId",
+  requireRole(["ADMIN", "VENDOR"]),
+  deleteProductVariant
 );
 
 /**
