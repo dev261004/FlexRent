@@ -15,6 +15,11 @@ import {
 } from "../controllers/product-image.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
 import {
+  createRentalConfig,
+  getRentalConfig,
+  updateRentalConfig,
+} from "../controllers/rental-config.controller";
+import {
   PRODUCT_IMAGE_FIELD_NAME,
   PRODUCT_IMAGE_MAX_FILES,
   productImageUpload,
@@ -294,6 +299,112 @@ router.get("/", listProducts);
  *         description: Product slug, SKU, asset tag, barcode, or QR code already exists
  */
 router.post("/", requireRole(["ADMIN", "VENDOR"]), createProduct);
+
+/**
+ * @swagger
+ * /api/products/{productId}/rental-config:
+ *   post:
+ *     summary: Create rental configuration
+ *     description: Admin can configure any product. Vendor can configure only their own product. Only one rental config is allowed per product.
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductRentalConfigInput'
+ *     responses:
+ *       201:
+ *         description: Rental configuration created successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product not found
+ *       409:
+ *         description: Rental configuration already exists for this product
+ */
+router.post(
+  "/:productId/rental-config",
+  requireRole(["ADMIN", "VENDOR"]),
+  createRentalConfig
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/rental-config:
+ *   get:
+ *     summary: Get product rental configuration
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Rental configuration fetched successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Vendor cannot access another vendor product
+ *       404:
+ *         description: Product or rental configuration not found
+ */
+router.get("/:productId/rental-config", getRentalConfig);
+
+/**
+ * @swagger
+ * /api/products/{productId}/rental-config:
+ *   put:
+ *     summary: Update product rental configuration
+ *     description: Admin can update any product rental config. Vendor can update only their own product rental config.
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductRentalConfigInput'
+ *     responses:
+ *       200:
+ *         description: Rental configuration updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product or rental configuration not found
+ */
+router.put(
+  "/:productId/rental-config",
+  requireRole(["ADMIN", "VENDOR"]),
+  updateRentalConfig
+);
 
 /**
  * @swagger
