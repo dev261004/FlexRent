@@ -11,6 +11,7 @@ import {
 } from "./middleware/error.middleware";
 import authRoutes from "./routes/auth.routes";
 import categoryRoutes from "./routes/category.routes";
+import priceListRuleRoutes from "./routes/price-list-rule.routes";
 import priceListRoutes from "./routes/price-list.routes";
 import productAttributeRoutes from "./routes/product-attribute.routes";
 import productRoutes from "./routes/product.routes";
@@ -42,6 +43,8 @@ app.use("/api/categories", categoryRoutes);
 app.use("/categories", categoryRoutes);
 app.use("/api/price-lists", priceListRoutes);
 app.use("/price-lists", priceListRoutes);
+app.use("/api/price-list-rules", priceListRuleRoutes);
+app.use("/price-list-rules", priceListRuleRoutes);
 app.use("/api/product-attributes", productAttributeRoutes);
 app.use("/product-attributes", productAttributeRoutes);
 app.use("/api/products", productRoutes);
