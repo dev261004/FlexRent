@@ -252,6 +252,36 @@ export class RentalOrderRepository {
     });
   }
 
+  createPayment(data: any, db: PrismaExecutor = prisma) {
+    return (db as any).rentalPayment.create({ data });
+  }
+
+  getPayments(orderId: string, db: PrismaExecutor = prisma) {
+    return (db as any).rentalPayment.findMany({
+      where: { rentalOrderId: orderId },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    });
+  }
+
+  updatePaymentStatus(orderId: string, paymentStatus: string, db: PrismaExecutor = prisma) {
+    return (db as any).rentalOrder.update({
+      where: { id: orderId },
+      data: { paymentStatus },
+      include: rentalOrderInclude,
+    });
+  }
+
+  updateSecurityDeposit(
+    rentalOrderId: string,
+    data: any,
+    db: PrismaExecutor = prisma
+  ) {
+    return (db as any).securityDeposit.update({
+      where: { rentalOrderId },
+      data,
+    });
+  }
+
   transaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return prisma.$transaction(callback);
   }

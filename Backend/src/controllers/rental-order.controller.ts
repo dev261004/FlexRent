@@ -7,6 +7,11 @@ import {
   returnOrderSchema,
 } from "../validations/pickup-return.validation";
 import {
+  createPaymentSchema,
+  paymentOrderParamsSchema,
+  refundDepositSchema,
+} from "../validations/payment.validation";
+import {
   createRentalOrderSchema,
   listRentalOrdersQuerySchema,
   rentalOrderParamsSchema,
@@ -140,6 +145,50 @@ export const getRentalOrderTimeline = asyncHandler(
       success: true,
       message: "Rental order timeline fetched successfully",
       data: { timeline },
+    });
+  }
+);
+
+export const createRentalOrderPayment = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = paymentOrderParamsSchema.parse(req.params);
+    const payload = createPaymentSchema.parse(req.body);
+    const result = await rentalOrderService.recordPayment(orderId, payload, user);
+
+    res.status(201).json({
+      success: true,
+      message: "Rental order payment recorded successfully",
+      data: result,
+    });
+  }
+);
+
+export const getRentalOrderPayments = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = paymentOrderParamsSchema.parse(req.params);
+    const result = await rentalOrderService.getPayments(orderId, user);
+
+    res.json({
+      success: true,
+      message: "Rental order payments fetched successfully",
+      data: result,
+    });
+  }
+);
+
+export const refundRentalOrderDeposit = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = paymentOrderParamsSchema.parse(req.params);
+    const payload = refundDepositSchema.parse(req.body);
+    const result = await rentalOrderService.refundDeposit(orderId, payload, user);
+
+    res.json({
+      success: true,
+      message: "Security deposit refunded successfully",
+      data: result,
     });
   }
 );

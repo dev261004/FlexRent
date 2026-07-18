@@ -14,6 +14,10 @@ import {
   PickupOrderInput,
   ReturnOrderInput,
 } from "../validations/pickup-return.validation";
+import {
+  CreatePaymentInput,
+  RefundDepositInput,
+} from "../validations/payment.validation";
 
 type RentalOrderItemInput = CreateRentalOrderInput["items"][number];
 type RentalStatusValue =
@@ -356,6 +360,138 @@ export class RentalOrderService {
     };
   }
 
+  async recordPayment(
+    orderId: string,
+    payload: CreatePaymentInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertWritable(order, user);
+
+    const payment = await rentalOrderRepository.transaction(async (tx) => {
+      const createdPayment = await rentalOrderRepository.createPayment(
+        {
+          rentalOrderId: orderId,
+          amount: payload.amount,
+          method: payload.method,
+          status: "PAID",
+          transactionId: payload.transactionId ?? null,
+          paidAt: payload.paidAt ?? new Date(),
+          notes: this.formatPaymentNotes(payload.purpose, payload.notes),
+        },
+        tx
+      );
+
+      if (payload.purpose === "SECURITY_DEPOSIT") {
+        await this.markSecurityDepositCollected(order, tx);
+      }
+
+      const updatedOrder = await rentalOrderRepository.getRentalOrder(orderId, tx);
+      this.assertRuleOrderLoaded(updatedOrder);
+      const paymentStatus = this.calculatePaymentStatus(updatedOrder);
+      await rentalOrderRepository.updatePaymentStatus(orderId, paymentStatus, tx);
+
+      return createdPayment;
+    });
+
+    const updatedOrder = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertRuleOrderLoaded(updatedOrder);
+
+    return {
+      payment: this.mapPayment(payment),
+      summary: this.buildPaymentSummary(updatedOrder),
+    };
+  }
+
+  async getPayments(orderId: string, user: ProductRequester) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertReadable(order, user);
+
+    const payments = await rentalOrderRepository.getPayments(orderId);
+
+    return {
+      payments: payments.map((payment: any) => this.mapPayment(payment)),
+      summary: this.buildPaymentSummary(order),
+    };
+  }
+
+  async refundDeposit(
+    orderId: string,
+    payload: RefundDepositInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertWritable(order, user);
+
+    if (!order.securityDeposit) {
+      throw new AppError(404, "Security deposit record not found");
+    }
+
+    const depositAmount = toNumber(order.securityDeposit.amount);
+    const alreadyRefunded = toNumber(order.securityDeposit.refundedAmount);
+    const alreadyDeducted = toNumber(order.securityDeposit.deductedAmount);
+    const remainingLateFeeDeduction = Math.max(toNumber(order.lateFee) - alreadyDeducted, 0);
+    const availableDeposit = Math.max(depositAmount - alreadyRefunded - alreadyDeducted, 0);
+    const deduction = Math.min(remainingLateFeeDeduction, availableDeposit);
+    const refundableAmount = Math.max(availableDeposit - deduction, 0);
+    const refundAmount = payload.amount ?? refundableAmount;
+
+    if (refundAmount <= 0) {
+      throw new AppError(400, "No security deposit amount is available for refund");
+    }
+
+    if (refundAmount > refundableAmount) {
+      throw new AppError(400, "Refund amount cannot exceed remaining refundable deposit");
+    }
+
+    const result = await rentalOrderRepository.transaction(async (tx) => {
+      const payment = await rentalOrderRepository.createPayment(
+        {
+          rentalOrderId: orderId,
+          amount: refundAmount,
+          method: payload.method ?? "CASH",
+          status: "REFUNDED",
+          transactionId: payload.transactionId ?? null,
+          paidAt: payload.refundedAt ?? new Date(),
+          notes: this.formatPaymentNotes("SECURITY_DEPOSIT_REFUND", payload.notes),
+        },
+        tx
+      );
+
+      const refundedAmount = alreadyRefunded + refundAmount;
+      const deductedAmount = alreadyDeducted + deduction;
+      const status =
+        refundedAmount >= depositAmount - deductedAmount
+          ? deductedAmount > 0
+            ? "PARTIALLY_REFUNDED"
+            : "REFUNDED"
+          : "PARTIALLY_REFUNDED";
+
+      const securityDeposit = await rentalOrderRepository.updateSecurityDeposit(
+        orderId,
+        {
+          refundedAmount,
+          deductedAmount,
+          status,
+          refundedAt: payload.refundedAt ?? new Date(),
+          notes: payload.notes ?? order.securityDeposit.notes,
+        },
+        tx
+      );
+
+      return { payment, securityDeposit };
+    });
+
+    const updatedOrder = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertRuleOrderLoaded(updatedOrder);
+
+    return {
+      payment: this.mapPayment(result.payment),
+      securityDeposit: this.mapSecurityDeposit(result.securityDeposit),
+      summary: this.buildPaymentSummary(updatedOrder),
+    };
+  }
+
   private async assertCustomerAndVendorExist(customerId: string, vendorId: string) {
     const [customer, vendor] = await Promise.all([
       rentalOrderRepository.findUserById(customerId, "CUSTOMER"),
@@ -642,6 +778,67 @@ export class RentalOrderService {
     }
   }
 
+  private calculatePaymentStatus(order: RentalOrderRecord): "PENDING" | "PARTIALLY_PAID" | "PAID" {
+    const totalPaid = this.calculateTotalPaid(order);
+    const grandTotal = toNumber(order.grandTotal);
+
+    if (totalPaid <= 0) return "PENDING";
+    if (totalPaid >= grandTotal) return "PAID";
+    return "PARTIALLY_PAID";
+  }
+
+  private calculateTotalPaid(order: RentalOrderRecord): number {
+    return order.payments
+      .filter((payment: any) => payment.status === "PAID")
+      .reduce((total: number, payment: any) => total + toNumber(payment.amount), 0);
+  }
+
+  private calculateOutstandingBalance(order: RentalOrderRecord): number {
+    return Math.max(toNumber(order.grandTotal) - this.calculateTotalPaid(order), 0);
+  }
+
+  private async markSecurityDepositCollected(
+    order: RentalOrderRecord,
+    tx: Prisma.TransactionClient
+  ) {
+    if (!order.securityDeposit || order.securityDeposit.status !== "PENDING") {
+      return;
+    }
+
+    await rentalOrderRepository.updateSecurityDeposit(
+      order.id,
+      {
+        status: "COLLECTED",
+        collectedAt: new Date(),
+      },
+      tx
+    );
+  }
+
+  private formatPaymentNotes(purpose: string, notes?: string): string {
+    return [`Purpose: ${purpose}`, notes ? `Notes: ${notes}` : null]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  private buildPaymentSummary(order: RentalOrderRecord) {
+    return {
+      grandTotal: decimalToString(order.grandTotal),
+      subtotal: decimalToString(order.subtotal),
+      securityDepositAmount: decimalToString(order.securityDepositAmount),
+      lateFee: decimalToString(order.lateFee),
+      paidAmount: this.calculateTotalPaid(order).toFixed(2),
+      outstandingBalance: this.calculateOutstandingBalance(order).toFixed(2),
+      paymentStatus: this.calculatePaymentStatus(order),
+    };
+  }
+
+  private assertRuleOrderLoaded(
+    order: RentalOrderRecord | null
+  ): asserts order is RentalOrderRecord {
+    if (!order) throw new AppError(404, "Rental order not found");
+  }
+
   private getAssignedAssetIds(order: RentalOrderRecord): string[] {
     return order.items
       .map((item: any) => item.assetId)
@@ -731,25 +928,36 @@ export class RentalOrderService {
       })),
       securityDeposit: order.securityDeposit
         ? {
-            ...order.securityDeposit,
-            amount: decimalToString(order.securityDeposit.amount),
-            refundedAmount: decimalToString(order.securityDeposit.refundedAmount),
-            deductedAmount: decimalToString(order.securityDeposit.deductedAmount),
-            createdAt: order.securityDeposit.createdAt.toISOString(),
-            updatedAt: order.securityDeposit.updatedAt.toISOString(),
-            collectedAt: order.securityDeposit.collectedAt?.toISOString() ?? null,
-            refundedAt: order.securityDeposit.refundedAt?.toISOString() ?? null,
+            ...this.mapSecurityDeposit(order.securityDeposit),
           }
         : null,
-      payments: order.payments.map((payment: any) => ({
-        ...payment,
-        amount: decimalToString(payment.amount),
-        paidAt: payment.paidAt?.toISOString() ?? null,
-        createdAt: payment.createdAt.toISOString(),
-        updatedAt: payment.updatedAt.toISOString(),
-      })),
+      payments: order.payments.map((payment: any) => this.mapPayment(payment)),
+      paymentSummary: this.buildPaymentSummary(order),
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
+    };
+  }
+
+  private mapPayment(payment: any) {
+    return {
+      ...payment,
+      amount: decimalToString(payment.amount),
+      paidAt: payment.paidAt?.toISOString() ?? null,
+      createdAt: payment.createdAt.toISOString(),
+      updatedAt: payment.updatedAt.toISOString(),
+    };
+  }
+
+  private mapSecurityDeposit(securityDeposit: any) {
+    return {
+      ...securityDeposit,
+      amount: decimalToString(securityDeposit.amount),
+      refundedAmount: decimalToString(securityDeposit.refundedAmount),
+      deductedAmount: decimalToString(securityDeposit.deductedAmount),
+      createdAt: securityDeposit.createdAt.toISOString(),
+      updatedAt: securityDeposit.updatedAt.toISOString(),
+      collectedAt: securityDeposit.collectedAt?.toISOString() ?? null,
+      refundedAt: securityDeposit.refundedAt?.toISOString() ?? null,
     };
   }
 }

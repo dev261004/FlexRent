@@ -1,11 +1,14 @@
 import { Router } from "express";
 import {
   createRentalOrder,
+  createRentalOrderPayment,
   deleteRentalOrder,
   getRentalOrder,
+  getRentalOrderPayments,
   getRentalOrderTimeline,
   getRentalOrders,
   pickupRentalOrder,
+  refundRentalOrderDeposit,
   returnRentalOrder,
   updateRentalOrder,
 } from "../controllers/rental-order.controller";
@@ -93,6 +96,46 @@ const router = Router();
  *           type: array
  *           items:
  *             type: string
+ *     RentalPaymentInput:
+ *       type: object
+ *       required:
+ *         - amount
+ *         - method
+ *       properties:
+ *         amount:
+ *           type: number
+ *           example: 2500
+ *         method:
+ *           type: string
+ *           enum: [CASH, CARD, UPI, BANK_TRANSFER, ONLINE]
+ *           example: UPI
+ *         purpose:
+ *           type: string
+ *           enum: [RENTAL, SECURITY_DEPOSIT, LATE_FEE]
+ *           example: RENTAL
+ *         transactionId:
+ *           type: string
+ *         paidAt:
+ *           type: string
+ *           format: date-time
+ *         notes:
+ *           type: string
+ *     RefundDepositInput:
+ *       type: object
+ *       properties:
+ *         amount:
+ *           type: number
+ *           description: Optional. If omitted, refunds the full refundable deposit.
+ *         method:
+ *           type: string
+ *           enum: [CASH, CARD, UPI, BANK_TRANSFER, ONLINE]
+ *         transactionId:
+ *           type: string
+ *         refundedAt:
+ *           type: string
+ *           format: date-time
+ *         notes:
+ *           type: string
  */
 
 router.use(verifyJWT);
@@ -266,6 +309,88 @@ router.post(
  *         description: Rental order not found
  */
 router.get("/:orderId/timeline", getRentalOrderTimeline);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/payments:
+ *   post:
+ *     summary: Record rental order payment
+ *     description: Records rental, security deposit, or late fee payment and recalculates outstanding balance.
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RentalPaymentInput'
+ *     responses:
+ *       201:
+ *         description: Rental order payment recorded successfully
+ */
+router.post(
+  "/:orderId/payments",
+  requireRole(["ADMIN", "VENDOR"]),
+  createRentalOrderPayment
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/payments:
+ *   get:
+ *     summary: List rental order payments
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Rental order payments fetched successfully
+ */
+router.get("/:orderId/payments", getRentalOrderPayments);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/refund-deposit:
+ *   post:
+ *     summary: Refund security deposit
+ *     description: Refunds remaining deposit after deducting late fees.
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RefundDepositInput'
+ *     responses:
+ *       200:
+ *         description: Security deposit refunded successfully
+ */
+router.post(
+  "/:orderId/refund-deposit",
+  requireRole(["ADMIN", "VENDOR"]),
+  refundRentalOrderDeposit
+);
 
 /**
  * @swagger
