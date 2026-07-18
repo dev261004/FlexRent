@@ -1,7 +1,9 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env";
+import { swaggerSpec } from "./config/swagger";
 import {
   errorHandler,
   notFoundHandler,
@@ -12,7 +14,7 @@ export const app = express();
 
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin:"*",
     credentials: true,
   })
 );
@@ -25,6 +27,8 @@ app.get("/api/health", (_req, res) => {
     message: "Rental Management API is healthy",
   });
 });
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/api/auth", authRoutes);
 app.use("/auth", authRoutes);

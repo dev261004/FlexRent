@@ -1,10 +1,10 @@
-import { Role, UserStatus } from "@prisma/client";
+import { AppRole, AppUserStatus } from "./roles";
 
 export type PublicUser = {
   id: string;
   email: string;
-  role: Role;
-  status: UserStatus;
+  role: AppRole;
+  status: AppUserStatus;
   firstName: string;
   lastName: string | null;
   fullName: string;
@@ -20,8 +20,8 @@ export type PublicUser = {
 export type AuthRequestUser = {
   id: string;
   email: string;
-  role: Role;
-  status: UserStatus;
+  role: AppRole;
+  status: AppUserStatus;
 };
 
 export type AuthResponse = {

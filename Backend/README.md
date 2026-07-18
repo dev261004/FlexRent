@@ -22,7 +22,8 @@ GET /api/health
 
 | Method | Route | Auth required | Description |
 |---|---|---|---|
-| POST | `/auth/register` | No | Create a customer, vendor, or guarded admin account |
+| POST | `/auth/register` | No | Create a customer account |
+| POST | `/auth/vendor/register` | No | Create a vendor account |
 | POST | `/auth/login` | No | Log in and receive an access token |
 | POST | `/auth/refresh` | Refresh cookie | Rotate refresh token and receive a new access token |
 | POST | `/auth/logout` | Refresh cookie | Revoke refresh token and clear cookie |
@@ -33,9 +34,9 @@ The same routes are also available under `/api/auth`.
 
 ## Roles
 
-- `CUSTOMER`: portal user. The API also accepts `USER` and stores it as `CUSTOMER`.
+- `CUSTOMER`: portal user created by `/auth/register`.
 - `VENDOR`: vendor signup requires company, product category, and GST number.
-- `ADMIN`: admin signup requires `ADMIN_REGISTRATION_KEY`.
+- `ADMIN`: no public signup route. Create a normal user first, then manually change the role in the database for now.
 
 ## Signup Validation
 

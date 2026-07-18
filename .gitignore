@@ -128,3 +128,6 @@ dist
 # Project specific
 Backend/dist/
 Backend/build/
+
+Backend/package-lock.json
+package-lock.json

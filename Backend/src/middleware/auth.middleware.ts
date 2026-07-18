@@ -1,7 +1,7 @@
-import { Role } from "@prisma/client";
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/prisma";
 import { AuthRequestUser } from "../types/auth.types";
+import { AppRole } from "../types/roles";
 import { verifyAccessToken } from "../utils/jwt";
 import { AppError, asyncHandler } from "./error.middleware";
 
@@ -56,7 +56,7 @@ export const verifyJWT = asyncHandler(async (req, _res, next) => {
   next();
 });
 
-export const requireRole = (roles: Role[]) => {
+export const requireRole = (roles: AppRole[]) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
       next(new AppError(401, "Authentication is required"));

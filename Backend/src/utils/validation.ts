@@ -1,4 +1,3 @@
-import { Role } from "@prisma/client";
 import { z, ZodError } from "zod";
 
 export const PASSWORD_RULE_MESSAGE =
@@ -25,13 +24,6 @@ const requiredText = (fieldName: string, max = 120) =>
     .min(1, `${fieldName} is required`)
     .max(max, `${fieldName} must be at most ${max} characters`);
 
-const roleSchema = z
-  .preprocess(
-    (value) => (typeof value === "string" ? value.trim().toUpperCase() : value),
-    z.enum(["CUSTOMER", "USER", "ADMIN", "VENDOR"]).default("CUSTOMER")
-  )
-  .transform((role): Role => (role === "USER" ? "CUSTOMER" : role));
-
 export const passwordSchema = z
   .string({ required_error: "Password is required" })
   .min(6, PASSWORD_RULE_MESSAGE)
@@ -41,66 +33,49 @@ export const passwordSchema = z
   .regex(/[0-9]/, PASSWORD_RULE_MESSAGE)
   .regex(/[^A-Za-z0-9]/, PASSWORD_RULE_MESSAGE);
 
+const authFields = {
+  firstName: requiredText("First name", 80),
+  lastName: optionalText(80),
+  email: z
+    .string({ required_error: "Email is required" })
+    .trim()
+    .toLowerCase()
+    .email("Enter a valid email address"),
+  password: passwordSchema,
+  confirmPassword: z.string({
+    required_error: "Confirm password is required",
+  }),
+  phone: optionalText(30),
+  profileImage: optionalText(500),
+};
+
+const requireMatchingPasswords = (
+  data: { password: string; confirmPassword: string },
+  ctx: z.RefinementCtx
+) => {
+  if (data.password !== data.confirmPassword) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["confirmPassword"],
+      message: "Password and confirm password must match",
+    });
+  }
+};
+
 export const registerSchema = z
+  .object(authFields)
+  .strict()
+  .superRefine(requireMatchingPasswords);
+
+export const vendorRegisterSchema = z
   .object({
-    firstName: requiredText("First name", 80),
-    lastName: optionalText(80),
-    email: z
-      .string({ required_error: "Email is required" })
-      .trim()
-      .toLowerCase()
-      .email("Enter a valid email address"),
-    password: passwordSchema,
-    confirmPassword: z.string({
-      required_error: "Confirm password is required",
-    }),
-    role: roleSchema,
-    phone: optionalText(30),
-    profileImage: optionalText(500),
-    companyName: optionalText(120),
-    productCategory: optionalText(80),
-    gstNumber: optionalText(32),
-    adminRegistrationKey: optionalText(120),
+    ...authFields,
+    companyName: requiredText("Company name", 120),
+    productCategory: requiredText("Product category", 80),
+    gstNumber: requiredText("GST number", 32),
   })
-  .superRefine((data, ctx) => {
-    if (data.password !== data.confirmPassword) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["confirmPassword"],
-        message: "Password and confirm password must match",
-      });
-    }
-
-    if (data.role === "VENDOR") {
-      const vendorFields = [
-        ["companyName", data.companyName, "Company name is required"],
-        [
-          "productCategory",
-          data.productCategory,
-          "Product category is required",
-        ],
-        ["gstNumber", data.gstNumber, "GST number is required"],
-      ] as const;
-
-      for (const [path, value, message] of vendorFields) {
-        if (!value) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [path],
-            message,
-          });
-        }
-      }
-    }
-
-    if (data.role === "ADMIN" && !data.adminRegistrationKey) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["adminRegistrationKey"],
-        message: "Admin registration key is required",
-      });
-    }
-  });
+  .strict()
+  .superRefine(requireMatchingPasswords);
 
 export const loginSchema = z.object({
   email: z

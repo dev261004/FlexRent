@@ -1,8 +1,9 @@
-import { Role, User } from "@prisma/client";
+import { User } from "@prisma/client";
 import { Request, Response } from "express";
 import { env } from "../config/env";
 import { prisma } from "../config/prisma";
 import { AppError, asyncHandler } from "../middleware/error.middleware";
+import { AppRole } from "../types/roles";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -22,6 +23,7 @@ import {
   refreshSchema,
   registerSchema,
   updateProfileSchema,
+  vendorRegisterSchema,
 } from "../utils/validation";
 
 const REFRESH_COOKIE_NAME = "refreshToken";
@@ -88,61 +90,81 @@ const assertPasswordIsUnique = async (password: string): Promise<string> => {
   return passwordFingerprint;
 };
 
-const assertAdminRegistrationAllowed = (
-  role: Role,
-  adminRegistrationKey?: string
-): void => {
-  if (role !== "ADMIN") {
-    return;
-  }
+type AccountRole = Extract<AppRole, "CUSTOMER" | "VENDOR">;
 
-  if (
-    !env.ADMIN_REGISTRATION_KEY ||
-    adminRegistrationKey !== env.ADMIN_REGISTRATION_KEY
-  ) {
-    throw new AppError(403, "Admin registration is disabled or key is invalid", {
-      adminRegistrationKey: "Invalid admin registration key",
-    });
-  }
+type RegisterAccountPayload = {
+  firstName: string;
+  lastName?: string;
+  email: string;
+  password: string;
+  phone?: string;
+  profileImage?: string;
+  companyName?: string;
+  productCategory?: string;
+  gstNumber?: string;
 };
 
-export const register = asyncHandler(async (req: Request, res: Response) => {
-  const payload = registerSchema.parse(req.body);
-
-  assertAdminRegistrationAllowed(payload.role, payload.adminRegistrationKey);
+const createRegisteredAccount = async (
+  payload: RegisterAccountPayload,
+  role: AccountRole
+) => {
   await assertEmailIsUnique(payload.email);
   const passwordFingerprint = await assertPasswordIsUnique(payload.password);
   const passwordHash = await hashPassword(payload.password);
 
-  const user = await prisma.user.create({
+  return prisma.user.create({
     data: {
       email: payload.email,
       passwordHash,
       passwordFingerprint,
-      role: payload.role,
+      role,
       firstName: payload.firstName,
       lastName: payload.lastName ?? null,
       phone: payload.phone ?? null,
       profileImage: payload.profileImage ?? null,
-      companyName: payload.role === "VENDOR" ? payload.companyName : null,
+      companyName: role === "VENDOR" ? payload.companyName : null,
       productCategory:
-        payload.role === "VENDOR" ? payload.productCategory : null,
-      gstNumber: payload.role === "VENDOR" ? payload.gstNumber : null,
+        role === "VENDOR" ? payload.productCategory : null,
+      gstNumber: role === "VENDOR" ? payload.gstNumber : null,
     },
   });
+};
+
+export const register = asyncHandler(async (req: Request, res: Response) => {
+  const payload = registerSchema.parse(req.body);
+  const user = await createRegisteredAccount(payload, "CUSTOMER");
 
   const tokens = await createUserSession(user);
   setRefreshTokenCookie(res, tokens.refreshToken);
 
   res.status(201).json({
     success: true,
-    message: "Registration successful",
+    message: "Customer registration successful",
     data: {
       user: mapUserToPublicUser(user),
       accessToken: tokens.accessToken,
     },
   });
 });
+
+export const registerVendor = asyncHandler(
+  async (req: Request, res: Response) => {
+    const payload = vendorRegisterSchema.parse(req.body);
+    const user = await createRegisteredAccount(payload, "VENDOR");
+
+    const tokens = await createUserSession(user);
+    setRefreshTokenCookie(res, tokens.refreshToken);
+
+    res.status(201).json({
+      success: true,
+      message: "Vendor registration successful",
+      data: {
+        user: mapUserToPublicUser(user),
+        accessToken: tokens.accessToken,
+      },
+    });
+  }
+);
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const payload = loginSchema.parse(req.body);

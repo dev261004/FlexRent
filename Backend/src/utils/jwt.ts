@@ -1,14 +1,14 @@
-import { Role } from "@prisma/client";
 import { createHash } from "crypto";
 import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
 import { env } from "../config/env";
+import { AppRole } from "../types/roles";
 
 type TokenKind = "access" | "refresh";
 
 type BaseTokenPayload = {
   sub: string;
   email: string;
-  role: Role;
+  role: AppRole;
   type: TokenKind;
 };
 
@@ -23,7 +23,7 @@ export type RefreshTokenPayload = BaseTokenPayload & {
 type TokenUser = {
   id: string;
   email: string;
-  role: Role;
+  role: AppRole;
 };
 
 const signToken = (

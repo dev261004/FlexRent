@@ -21,7 +21,6 @@ const envSchema = z.object({
     .min(16)
     .default("development-refresh-secret-change-me"),
   PASSWORD_FINGERPRINT_SECRET: z.string().min(16).optional(),
-  ADMIN_REGISTRATION_KEY: z.string().optional(),
   ACCESS_TOKEN_EXPIRY: z.string().min(1).default("15m"),
   REFRESH_TOKEN_EXPIRY: z.string().min(1).default("7d"),
   CLIENT_URL: z.string().url().default("http://localhost:3000"),
