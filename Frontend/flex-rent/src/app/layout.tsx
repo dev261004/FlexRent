@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "FlexRent — Rent equipment and tools",
@@ -27,7 +28,7 @@ export default function RootLayout({
         />
       </head>
       <body className="flex min-h-full flex-col font-body text-text antialiased">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

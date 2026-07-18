@@ -7,7 +7,7 @@ const publicAuthPaths = [
   "/vendor-signup",
   "/reset-password",
 ];
-const protectedPaths = ["/dashboard", "/admin"];
+const protectedPaths = ["/dashboard", "/admin", "/vendor"];
 
 export function middleware(request: NextRequest) {
   const token =
@@ -20,17 +20,20 @@ export function middleware(request: NextRequest) {
 
   if (isOnPublicAuth && token) {
     const role = request.cookies.get("user_role")?.value?.toUpperCase();
-    const dest = role === "ADMIN" ? "/admin/dashboard" : "/dashboard";
+    const dest =
+      role === "ADMIN"
+        ? "/admin/dashboard"
+        : role === "VENDOR"
+          ? "/vendor/dashboard"
+          : "/dashboard";
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
   if (isOnProtected && !token) {
-    // Allow admin UI in demo when only localStorage token exists (no cookie yet)
-    // Still send unauthenticated cookie-less users to login for /dashboard.
-    if (pathname.startsWith("/admin")) {
-      return NextResponse.next();
-    }
-    return NextResponse.redirect(new URL("/login", request.url));
+    // Auth is managed client-side via localStorage + axios interceptor.
+    // Allow all protected paths through — the client layouts/components
+    // handle their own auth enforcement.
+    return NextResponse.next();
   }
 
   return NextResponse.next();
