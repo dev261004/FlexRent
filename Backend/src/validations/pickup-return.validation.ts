@@ -19,6 +19,14 @@ export const pickupReturnParamsSchema = z
   })
   .strict();
 
+export const confirmOrderSchema = z
+  .object({
+    method: z.enum(["CASH", "CARD", "UPI", "BANK_TRANSFER", "ONLINE"]),
+    transactionId: optionalText(160),
+    notes: optionalText(1000),
+  })
+  .strict();
+
 export const pickupOrderSchema = z
   .object({
     pickupDate: z.preprocess(
@@ -44,3 +52,4 @@ export const returnOrderSchema = z
 
 export type PickupOrderInput = z.infer<typeof pickupOrderSchema>;
 export type ReturnOrderInput = z.infer<typeof returnOrderSchema>;
+export type ConfirmOrderInput = z.infer<typeof confirmOrderSchema>;

@@ -3,6 +3,7 @@ import { AppError, asyncHandler } from "../middleware/error.middleware";
 import { rentalOrderService } from "../services/rental-order.service";
 import {
   pickupOrderSchema,
+  confirmOrderSchema,
   pickupReturnParamsSchema,
   returnOrderSchema,
 } from "../validations/pickup-return.validation";
@@ -118,6 +119,16 @@ export const pickupRentalOrder = asyncHandler(
       message: "Rental order picked up successfully",
       data: { rentalOrder },
     });
+  }
+);
+
+export const confirmRentalOrder = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = confirmOrderSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.confirmOrder(orderId, payload, user);
+    res.json({ success: true, message: "Rental order confirmed and security deposit collected", data: { rentalOrder } });
   }
 );
 

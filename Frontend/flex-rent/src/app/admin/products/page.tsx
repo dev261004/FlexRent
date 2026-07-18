@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import axios from "axios";
 import { ChevronLeft, ChevronRight, PackageSearch, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Panel } from "@/components/admin/Panel";
@@ -38,27 +39,55 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProducts = useCallback(async (page: number) => {
+  const loadProducts = useCallback(async (page: number = 1) => {
+  try {
     setLoading(true);
     setError(null);
-    try {
-      const response = await api.get<{ data: ProductsResponse }>("/products", {
-        params: { page, limit: 10, sortBy: "createdAt", order: "desc" },
-      });
-      setProducts(response.data.data.products);
-      setPagination(response.data.data.pagination);
-    } catch {
-      setError("We could not load products. Please try again.");
-    } finally {
-      setLoading(false);
+
+    const { data } = await api.get<{
+      success: boolean;
+      message: string;
+      data: ProductsResponse;
+    }>("/products", {
+      params: {
+        page,
+        limit: 10,
+        sortBy: "createdAt",
+        order: "desc",
+      },
+    });
+
+    console.log("Products API Response:", data);
+
+    if (!data.success) {
+      throw new Error(data.message || "Failed to fetch products");
     }
-  }, []);
+
+    setProducts(data.data.products);
+    setPagination(data.data.pagination);
+  } catch (error) {
+    console.error("Products API Error:", error);
+
+    if (axios.isAxiosError(error)) {
+      console.error("Response:", error.response?.data);
+
+      setError(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to fetch products"
+      );
+    } else if (error instanceof Error) {
+      setError(error.message);
+    } else {
+      setError("Something went wrong.");
+    }
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
-    const requestId = window.setTimeout(() => {
-      void loadProducts(1);
-    }, 0);
-    return () => window.clearTimeout(requestId);
+    void loadProducts(1);
   }, [loadProducts]);
 
   return (

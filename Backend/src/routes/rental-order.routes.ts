@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   acceptRentalOrder,
   createRentalOrder,
+  confirmRentalOrder,
   createRentalOrderPayment,
   deleteRentalOrder,
   getRentalOrder,
@@ -223,6 +224,12 @@ router.post("/", requireRole(["ADMIN", "VENDOR", "CUSTOMER"]), createRentalOrder
  *         description: Rental orders fetched successfully
  */
 router.get("/", getRentalOrders);
+
+router.post(
+  "/:orderId/confirm",
+  requireRole(["ADMIN", "VENDOR"]),
+  confirmRentalOrder
+);
 
 /**
  * @swagger
