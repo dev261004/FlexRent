@@ -21,7 +21,7 @@ export const signupSchema = z
     email: z.string().email("Invalid email address"),
     password: passwordSchema,
     confirmPassword: z.string(),
-    couponCode: z.string().optional(),
+    phone: z.string().min(10, "Phone number must be at least 10 digits"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -35,8 +35,9 @@ export const vendorSignupSchema = z
     email: z.string().email("Invalid email address"),
     password: passwordSchema,
     confirmPassword: z.string(),
-    businessName: z.string().min(1, "Company name is required"),
-    gstNo: z.string().min(1, "GST number is required"),
+    phone: z.string().min(10, "Phone number must be at least 10 digits"),
+    companyName: z.string().min(1, "Company name is required"),
+    gstNumber: z.string().min(15, "GST number must be 15 characters"),
     productCategory: z.string().min(1, "Please select a category"),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -48,7 +49,18 @@ export const resetPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
 
+export const updatePasswordSchema = z
+  .object({
+    password: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type VendorSignupInput = z.infer<typeof vendorSignupSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;

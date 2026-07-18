@@ -7,12 +7,14 @@ import {
   signup,
   vendorSignup,
   resetPassword,
+  updatePassword as updatePasswordApi,
 } from "../services/authApi";
 import type {
   LoginInput,
   SignupInput,
   VendorSignupInput,
   ResetPasswordInput,
+  UpdatePasswordInput,
 } from "../validation/authSchemas";
 
 export function useLogin() {
@@ -61,6 +63,22 @@ export function useVendorSignup() {
       const response = await vendorSignup(data);
       localStorage.setItem("access_token", response.accessToken);
       router.push("/dashboard");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return { mutate, pending };
+}
+
+export function useUpdatePassword() {
+  const [pending, setPending] = useState(false);
+
+  const mutate = async (token: string, data: UpdatePasswordInput) => {
+    setPending(true);
+    try {
+      const response = await updatePasswordApi(token, data);
+      return response;
     } finally {
       setPending(false);
     }
