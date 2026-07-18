@@ -9,9 +9,22 @@
   --color-chalk: #A8A29E;
   --color-text: #F5F2ED;
   --color-text-subtle: #9A9490;
+  --color-border: #3A3735;
   --font-display: "Instrument Sans", "Inter", system-ui, sans-serif;
   --font-body: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+}
+
+[data-theme="light"] {
+  --color-surface: #FAF8F5;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-inventory: #E8E4DF;
+  --color-accent: #EAB308;
+  --color-danger: #DC2626;
+  --color-chalk: #6B6560;
+  --color-text: #1A1817;
+  --color-text-subtle: #9A9490;
+  --color-border: #E2DFDA;
 }
 
 body {

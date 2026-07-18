@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   login,
   signup,
@@ -17,16 +18,26 @@ import type {
   UpdatePasswordInput,
 } from "../validation/authSchemas";
 
+function dashboardFor(role: string) {
+  if (role === "ADMIN") return "/admin/dashboard";
+  if (role === "VENDOR") return "/vendor/dashboard";
+  return "/dashboard";
+}
+
+function redirectToDashboard(role: string) {
+  window.location.href = dashboardFor(role);
+}
+
 export function useLogin() {
-  const router = useRouter();
+  const { login: authLogin } = useAuth();
   const [pending, setPending] = useState(false);
 
   const mutate = async (data: LoginInput) => {
     setPending(true);
     try {
       const response = await login(data);
-      localStorage.setItem("access_token", response.accessToken);
-      router.push("/dashboard");
+      authLogin(response.accessToken, response.user);
+      redirectToDashboard(response.user.role);
     } finally {
       setPending(false);
     }
@@ -36,15 +47,15 @@ export function useLogin() {
 }
 
 export function useSignup() {
-  const router = useRouter();
+  const { login: authLogin } = useAuth();
   const [pending, setPending] = useState(false);
 
   const mutate = async (data: SignupInput) => {
     setPending(true);
     try {
       const response = await signup(data);
-      localStorage.setItem("access_token", response.accessToken);
-      router.push("/dashboard");
+      authLogin(response.accessToken, response.user);
+      redirectToDashboard(response.user.role);
     } finally {
       setPending(false);
     }
@@ -54,15 +65,15 @@ export function useSignup() {
 }
 
 export function useVendorSignup() {
-  const router = useRouter();
+  const { login: authLogin } = useAuth();
   const [pending, setPending] = useState(false);
 
   const mutate = async (data: VendorSignupInput) => {
     setPending(true);
     try {
       const response = await vendorSignup(data);
-      localStorage.setItem("access_token", response.accessToken);
-      router.push("/dashboard");
+      authLogin(response.accessToken, response.user);
+      redirectToDashboard(response.user.role);
     } finally {
       setPending(false);
     }
