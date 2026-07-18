@@ -2,6 +2,11 @@ import { Request, Response } from "express";
 import { AppError, asyncHandler } from "../middleware/error.middleware";
 import { rentalOrderService } from "../services/rental-order.service";
 import {
+  pickupOrderSchema,
+  pickupReturnParamsSchema,
+  returnOrderSchema,
+} from "../validations/pickup-return.validation";
+import {
   createRentalOrderSchema,
   listRentalOrdersQuerySchema,
   rentalOrderParamsSchema,
@@ -83,6 +88,58 @@ export const deleteRentalOrder = asyncHandler(
       success: true,
       message: "Rental order deleted successfully",
       data: { rentalOrder },
+    });
+  }
+);
+
+export const pickupRentalOrder = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = pickupOrderSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.pickupOrder(
+      orderId,
+      payload,
+      user
+    );
+
+    res.json({
+      success: true,
+      message: "Rental order picked up successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const returnRentalOrder = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = returnOrderSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.returnOrder(
+      orderId,
+      payload,
+      user
+    );
+
+    res.json({
+      success: true,
+      message: "Rental order returned successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const getRentalOrderTimeline = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const timeline = await rentalOrderService.getTimeline(orderId, user);
+
+    res.json({
+      success: true,
+      message: "Rental order timeline fetched successfully",
+      data: { timeline },
     });
   }
 );

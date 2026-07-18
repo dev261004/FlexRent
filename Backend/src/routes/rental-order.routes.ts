@@ -3,7 +3,10 @@ import {
   createRentalOrder,
   deleteRentalOrder,
   getRentalOrder,
+  getRentalOrderTimeline,
   getRentalOrders,
+  pickupRentalOrder,
+  returnRentalOrder,
   updateRentalOrder,
 } from "../controllers/rental-order.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
@@ -62,6 +65,34 @@ const router = Router();
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/RentalOrderItemInput'
+ *     PickupOrderInput:
+ *       type: object
+ *       properties:
+ *         pickupDate:
+ *           type: string
+ *           format: date-time
+ *         pickedUpBy:
+ *           type: string
+ *           example: Vendor Staff
+ *         notes:
+ *           type: string
+ *           example: Customer verified identity at pickup.
+ *     ReturnOrderInput:
+ *       type: object
+ *       properties:
+ *         returnedAt:
+ *           type: string
+ *           format: date-time
+ *         returnedBy:
+ *           type: string
+ *           example: Vendor Staff
+ *         returnNotes:
+ *           type: string
+ *           example: Returned in good condition.
+ *         maintenanceAssetIds:
+ *           type: array
+ *           items:
+ *             type: string
  */
 
 router.use(verifyJWT);
@@ -137,6 +168,104 @@ router.post("/", requireRole(["ADMIN", "VENDOR", "CUSTOMER"]), createRentalOrder
  *         description: Rental orders fetched successfully
  */
 router.get("/", getRentalOrders);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/pickup:
+ *   post:
+ *     summary: Mark rental order as picked up
+ *     description: Admin and vendor can pickup confirmed orders. Assigned assets must be available and are marked PICKED_UP.
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/PickupOrderInput'
+ *     responses:
+ *       200:
+ *         description: Rental order picked up successfully
+ *       400:
+ *         description: Invalid order status or duplicate pickup
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Rental order or asset not found
+ */
+router.post(
+  "/:orderId/pickup",
+  requireRole(["ADMIN", "VENDOR"]),
+  pickupRentalOrder
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/return:
+ *   post:
+ *     summary: Return rental order
+ *     description: Admin and vendor can return picked-up orders. Assets are marked AVAILABLE or MAINTENANCE and late fee is calculated.
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReturnOrderInput'
+ *     responses:
+ *       200:
+ *         description: Rental order returned successfully
+ *       400:
+ *         description: Invalid order status or duplicate return
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Rental order not found
+ */
+router.post(
+  "/:orderId/return",
+  requireRole(["ADMIN", "VENDOR"]),
+  returnRentalOrder
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/timeline:
+ *   get:
+ *     summary: Get rental order timeline
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Rental order timeline fetched successfully
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Rental order not found
+ */
+router.get("/:orderId/timeline", getRentalOrderTimeline);
 
 /**
  * @swagger
