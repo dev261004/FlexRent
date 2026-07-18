@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell, LogOut, Moon, Search, Sun } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/components/admin/ThemeProvider";
+import { CustomerSidebar } from "@/components/customer/CustomerSidebar";
 
 export default function DashboardLayout({
   children,
@@ -63,9 +64,7 @@ export default function DashboardLayout({
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {children}
-      </main>
+      <div className="mx-auto flex max-w-[1600px]"><CustomerSidebar /><main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-8">{children}</main></div>
     </div>
   );
 }

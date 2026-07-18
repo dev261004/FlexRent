@@ -13,6 +13,7 @@ import {
 import {
   PickupOrderInput,
   ReturnOrderInput,
+  ConfirmOrderInput,
 } from "../validations/pickup-return.validation";
 import {
   CreatePaymentInput,
@@ -42,6 +43,22 @@ const toNumber = (value: Prisma.Decimal | number | string | null | undefined): n
 };
 
 export class RentalOrderService {
+  async confirmOrder(orderId: string, payload: ConfirmOrderInput, user: ProductRequester) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertWritable(order, user);
+    if (order.status !== "QUOTATION") throw new AppError(400, "Only quotation rental orders can be confirmed");
+
+    const updated = await rentalOrderRepository.transaction(async (tx) => {
+      const depositAmount = toNumber(order.securityDepositAmount);
+      if (depositAmount > 0) {
+        await rentalOrderRepository.createPayment({ rentalOrderId: orderId, amount: depositAmount, method: payload.method, status: "PAID", transactionId: payload.transactionId ?? null, paidAt: new Date(), notes: this.formatPaymentNotes("SECURITY_DEPOSIT", payload.notes) }, tx);
+        await rentalOrderRepository.updateSecurityDeposit(orderId, { status: "COLLECTED", collectedAt: new Date(), notes: payload.notes ?? order.securityDeposit?.notes }, tx);
+      }
+      return rentalOrderRepository.updateRentalOrder(orderId, { status: "CONFIRMED", paymentStatus: depositAmount > 0 ? "PARTIALLY_PAID" : order.paymentStatus, notes: this.mergeNotes(order.notes, ["Order confirmed", payload.notes ? `Confirmation notes: ${payload.notes}` : null]) }, tx);
+    });
+    return this.mapRentalOrder(updated);
+  }
+
   async createRentalOrder(payload: CreateRentalOrderInput, user: ProductRequester) {
     this.assertCanCreateForCustomer(payload.customerId, user);
     this.assertDateRange(payload.rentalStart, payload.rentalEnd);
@@ -301,7 +318,7 @@ export class RentalOrderService {
         );
       }
 
-      return rentalOrderRepository.returnOrder(
+      const returnedOrder = await rentalOrderRepository.returnOrder(
         orderId,
         {
           status: "RETURNED",
@@ -312,6 +329,16 @@ export class RentalOrderService {
         },
         tx
       );
+      const depositAmount = toNumber(order.securityDepositAmount);
+      const deduction = Math.min(lateFee, depositAmount);
+      const refundAmount = Math.max(depositAmount - deduction, 0);
+      if (refundAmount > 0) {
+        await rentalOrderRepository.createPayment({ rentalOrderId: orderId, amount: refundAmount, method: "CASH", status: "REFUNDED", paidAt: returnedAt, notes: this.formatPaymentNotes("SECURITY_DEPOSIT_REFUND", deduction > 0 ? `Late fee deduction: ${deduction.toFixed(2)}` : "Returned on time") }, tx);
+      }
+      if (order.securityDeposit) {
+        await rentalOrderRepository.updateSecurityDeposit(orderId, { refundedAmount: refundAmount, deductedAmount: deduction, status: deduction > 0 ? "PARTIALLY_REFUNDED" : "REFUNDED", refundedAt: returnedAt }, tx);
+      }
+      return returnedOrder;
     });
 
     return this.mapRentalOrder(updatedOrder);
