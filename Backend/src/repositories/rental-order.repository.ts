@@ -282,6 +282,22 @@ export class RentalOrderRepository {
     });
   }
 
+  acceptRentalOrder(id: string, data: any, db: PrismaExecutor = prisma) {
+    return (db as any).rentalOrder.update({
+      where: { id },
+      data,
+      include: rentalOrderInclude,
+    });
+  }
+
+  rejectRentalOrder(id: string, data: any, db: PrismaExecutor = prisma) {
+    return (db as any).rentalOrder.update({
+      where: { id },
+      data,
+      include: rentalOrderInclude,
+    });
+  }
+
   transaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return prisma.$transaction(callback);
   }

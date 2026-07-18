@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  acceptRentalOrder,
   createRentalOrder,
   createRentalOrderPayment,
   deleteRentalOrder,
@@ -9,6 +10,7 @@ import {
   getRentalOrders,
   pickupRentalOrder,
   refundRentalOrderDeposit,
+  rejectRentalOrder,
   returnRentalOrder,
   updateRentalOrder,
 } from "../controllers/rental-order.controller";
@@ -136,6 +138,16 @@ const router = Router();
  *           format: date-time
  *         notes:
  *           type: string
+ *     RejectRentalOrderInput:
+ *       type: object
+ *       required:
+ *         - reason
+ *       properties:
+ *         reason:
+ *           type: string
+ *           minLength: 5
+ *           maxLength: 500
+ *           example: Product unavailable for selected dates.
  */
 
 router.use(verifyJWT);
@@ -360,6 +372,74 @@ router.post(
  *         description: Rental order payments fetched successfully
  */
 router.get("/:orderId/payments", getRentalOrderPayments);
+
+/**
+ * @swagger
+ * /api/rental-orders/{id}/accept:
+ *   post:
+ *     summary: Accept rental request
+ *     description: Admin or owning vendor can accept quotation rental requests. Status becomes CONFIRMED.
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Rental request accepted successfully
+ *       400:
+ *         description: Order is not in quotation status
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Rental order not found
+ */
+router.post(
+  "/:id/accept",
+  requireRole(["ADMIN", "VENDOR"]),
+  acceptRentalOrder
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{id}/reject:
+ *   post:
+ *     summary: Reject rental request
+ *     description: Admin or owning vendor can reject quotation rental requests. Status becomes CANCELLED.
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RejectRentalOrderInput'
+ *     responses:
+ *       200:
+ *         description: Rental request rejected successfully
+ *       400:
+ *         description: Validation error or order is not in quotation status
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Rental order not found
+ */
+router.post(
+  "/:id/reject",
+  requireRole(["ADMIN", "VENDOR"]),
+  rejectRentalOrder
+);
 
 /**
  * @swagger

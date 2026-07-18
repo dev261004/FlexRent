@@ -17,6 +17,11 @@ import {
   rentalOrderParamsSchema,
   updateRentalOrderSchema,
 } from "../validations/rental-order.validation";
+import {
+  acceptRentalOrderSchema,
+  rejectRentalOrderSchema,
+  rentalOrderWorkflowParamsSchema,
+} from "../validations/rental-order-workflow.validation";
 
 const getAuthenticatedUser = (req: Request) => {
   if (!req.user) {
@@ -189,6 +194,40 @@ export const refundRentalOrderDeposit = asyncHandler(
       success: true,
       message: "Security deposit refunded successfully",
       data: result,
+    });
+  }
+);
+
+export const acceptRentalOrder = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = rentalOrderWorkflowParamsSchema.parse(req.params);
+    acceptRentalOrderSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.acceptRentalOrder(id, user);
+
+    res.json({
+      success: true,
+      message: "Rental request accepted successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const rejectRentalOrder = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = rentalOrderWorkflowParamsSchema.parse(req.params);
+    const payload = rejectRentalOrderSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.rejectRentalOrder(
+      id,
+      payload,
+      user
+    );
+
+    res.json({
+      success: true,
+      message: "Rental request rejected successfully",
+      data: { rentalOrder },
     });
   }
 );

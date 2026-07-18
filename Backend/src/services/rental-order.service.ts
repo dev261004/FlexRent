@@ -18,6 +18,7 @@ import {
   CreatePaymentInput,
   RefundDepositInput,
 } from "../validations/payment.validation";
+import { RejectRentalOrderInput } from "../validations/rental-order-workflow.validation";
 
 type RentalOrderItemInput = CreateRentalOrderInput["items"][number];
 type RentalStatusValue =
@@ -492,6 +493,46 @@ export class RentalOrderService {
     };
   }
 
+  async acceptRentalOrder(orderId: string, user: ProductRequester) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertWritable(order, user);
+    this.assertAcceptRejectAllowed(order);
+
+    const acceptedOrder = await rentalOrderRepository.acceptRentalOrder(orderId, {
+      status: "CONFIRMED",
+      approvedAt: new Date(),
+      approvedBy: user.id,
+      rejectedAt: null,
+      rejectedBy: null,
+      rejectionReason: null,
+    });
+
+    this.notifyCustomerOrderAccepted(acceptedOrder);
+    return this.mapRentalOrder(acceptedOrder);
+  }
+
+  async rejectRentalOrder(
+    orderId: string,
+    payload: RejectRentalOrderInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertWritable(order, user);
+    this.assertAcceptRejectAllowed(order);
+
+    const rejectedOrder = await rentalOrderRepository.rejectRentalOrder(orderId, {
+      status: "CANCELLED",
+      rejectedAt: new Date(),
+      rejectedBy: user.id,
+      rejectionReason: payload.reason,
+      approvedAt: null,
+      approvedBy: null,
+    });
+
+    this.notifyCustomerOrderRejected(rejectedOrder);
+    return this.mapRentalOrder(rejectedOrder);
+  }
+
   private async assertCustomerAndVendorExist(customerId: string, vendorId: string) {
     const [customer, vendor] = await Promise.all([
       rentalOrderRepository.findUserById(customerId, "CUSTOMER"),
@@ -778,6 +819,20 @@ export class RentalOrderService {
     }
   }
 
+  private assertAcceptRejectAllowed(order: RentalOrderRecord) {
+    if (order.status !== "QUOTATION") {
+      throw new AppError(400, "Only quotation rental requests can be accepted or rejected");
+    }
+  }
+
+  private notifyCustomerOrderAccepted(_order: RentalOrderRecord) {
+    // TODO: integrate email or push notification for accepted rental requests.
+  }
+
+  private notifyCustomerOrderRejected(_order: RentalOrderRecord) {
+    // TODO: integrate email or push notification for rejected rental requests.
+  }
+
   private calculatePaymentStatus(order: RentalOrderRecord): "PENDING" | "PARTIALLY_PAID" | "PAID" {
     const totalPaid = this.calculateTotalPaid(order);
     const grandTotal = toNumber(order.grandTotal);
@@ -903,6 +958,11 @@ export class RentalOrderService {
       rentalEnd: order.rentalEnd.toISOString(),
       actualPickupAt: order.actualPickupAt?.toISOString() ?? null,
       actualReturnAt: order.actualReturnAt?.toISOString() ?? null,
+      approvedAt: order.approvedAt?.toISOString() ?? null,
+      approvedBy: order.approvedBy ?? null,
+      rejectedAt: order.rejectedAt?.toISOString() ?? null,
+      rejectedBy: order.rejectedBy ?? null,
+      rejectionReason: order.rejectionReason ?? null,
       subtotal: decimalToString(order.subtotal),
       securityDepositAmount: decimalToString(order.securityDepositAmount),
       lateFee: decimalToString(order.lateFee),

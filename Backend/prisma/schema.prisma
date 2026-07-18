@@ -412,6 +412,11 @@ model RentalOrder {
   rentalEnd             DateTime
   actualPickupAt        DateTime?
   actualReturnAt        DateTime?
+  approvedAt            DateTime?
+  approvedBy            String?
+  rejectedAt            DateTime?
+  rejectedBy            String?
+  rejectionReason       String?
   subtotal              Decimal           @default(0) @db.Decimal(12, 2)
   securityDepositAmount Decimal           @default(0) @db.Decimal(12, 2)
   lateFee               Decimal           @default(0) @db.Decimal(12, 2)
