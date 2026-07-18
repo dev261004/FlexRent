@@ -15,6 +15,7 @@ import priceListRuleRoutes from "./routes/price-list-rule.routes";
 import priceListRoutes from "./routes/price-list.routes";
 import productAttributeRoutes from "./routes/product-attribute.routes";
 import productRoutes from "./routes/product.routes";
+import rentalOrderRoutes from "./routes/rental-order.routes";
 
 export const app = express();
 
@@ -49,6 +50,8 @@ app.use("/api/product-attributes", productAttributeRoutes);
 app.use("/product-attributes", productAttributeRoutes);
 app.use("/api/products", productRoutes);
 app.use("/products", productRoutes);
+app.use("/api/rental-orders", rentalOrderRoutes);
+app.use("/rental-orders", rentalOrderRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

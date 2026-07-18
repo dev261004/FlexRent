@@ -71,25 +71,59 @@ enum ProductAssetStatus {
   RETIRED
 }
 
+enum RentalStatus {
+  QUOTATION
+  CONFIRMED
+  PICKED_UP
+  RETURNED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  REFUNDED
+  FAILED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  BANK_TRANSFER
+  ONLINE
+}
+
+enum SecurityDepositStatus {
+  PENDING
+  COLLECTED
+  PARTIALLY_REFUNDED
+  REFUNDED
+  DEDUCTED
+}
+
 model User {
-  id                  String               @id @default(cuid())
-  email               String               @unique
-  passwordHash        String
-  role                Role                 @default(CUSTOMER)
-  status              UserStatus           @default(ACTIVE)
-  firstName           String
-  lastName            String?
-  phone               String?
-  profileImage        String?
-  companyName         String?
-  productCategory     String?
-  gstNumber           String?              @unique
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  refreshTokens       RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
-  createdProducts     Product[]            @relation("ProductCreatedBy")
-  vendorProducts      Product[]            @relation("ProductVendor")
+  id                   String               @id @default(cuid())
+  email                String               @unique
+  passwordHash         String
+  role                 Role                 @default(CUSTOMER)
+  status               UserStatus           @default(ACTIVE)
+  firstName            String
+  lastName             String?
+  phone                String?
+  profileImage         String?
+  companyName          String?
+  productCategory      String?
+  gstNumber            String?              @unique
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
+  createdProducts      Product[]            @relation("ProductCreatedBy")
+  vendorProducts       Product[]            @relation("ProductVendor")
+  customerRentalOrders RentalOrder[]        @relation("RentalOrderCustomer")
+  vendorRentalOrders   RentalOrder[]        @relation("RentalOrderVendor")
 
   @@index([role])
   @@index([status])
@@ -161,6 +195,7 @@ model Product {
   variants       ProductVariant[]
   rentalConfig   ProductRentalConfig?
   priceListRules PriceListRule[]
+  rentalItems    RentalOrderItem[]
 
   @@index([categoryId])
   @@index([createdById])
@@ -185,18 +220,19 @@ model ProductImage {
 }
 
 model ProductAsset {
-  id        String             @id @default(cuid())
-  productId String
-  variantId String?
-  assetTag  String             @unique
-  barcode   String?            @unique
-  qrCode    String?            @unique
-  status    ProductAssetStatus @default(AVAILABLE)
-  notes     String?
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  product   Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variant   ProductVariant?    @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  id          String             @id @default(cuid())
+  productId   String
+  variantId   String?
+  assetTag    String             @unique
+  barcode     String?            @unique
+  qrCode      String?            @unique
+  status      ProductAssetStatus @default(AVAILABLE)
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  product     Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant     ProductVariant?    @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  rentalItems RentalOrderItem[]
 
   @@index([productId])
   @@index([variantId])
@@ -264,6 +300,7 @@ model ProductVariant {
   product        Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
   values         ProductVariantValue[]
   assets         ProductAsset[]
+  rentalItems    RentalOrderItem[]
 
   @@index([productId])
   @@index([isActive])
@@ -320,16 +357,17 @@ model ProductRentalConfig {
 }
 
 model PriceList {
-  id          String          @id @default(cuid())
-  name        String          @unique
-  description String?
-  isDefault   Boolean         @default(false)
-  isActive    Boolean         @default(true)
-  validFrom   DateTime?
-  validTo     DateTime?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  rules       PriceListRule[]
+  id           String          @id @default(cuid())
+  name         String          @unique
+  description  String?
+  isDefault    Boolean         @default(false)
+  isActive     Boolean         @default(true)
+  validFrom    DateTime?
+  validTo      DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  rules        PriceListRule[]
+  rentalOrders RentalOrder[]
 
   @@index([isDefault])
   @@index([isActive])
@@ -360,4 +398,98 @@ model PriceListRule {
   @@index([ruleType])
   @@index([selectable])
   @@index([validFrom, validTo])
+}
+
+model RentalOrder {
+  id                    String            @id @default(cuid())
+  rentalNumber          String            @unique
+  customerId            String
+  vendorId              String
+  priceListId           String?
+  status                RentalStatus      @default(QUOTATION)
+  paymentStatus         PaymentStatus     @default(PENDING)
+  rentalStart           DateTime
+  rentalEnd             DateTime
+  actualPickupAt        DateTime?
+  actualReturnAt        DateTime?
+  subtotal              Decimal           @default(0) @db.Decimal(12, 2)
+  securityDepositAmount Decimal           @default(0) @db.Decimal(12, 2)
+  lateFee               Decimal           @default(0) @db.Decimal(12, 2)
+  grandTotal            Decimal           @default(0) @db.Decimal(12, 2)
+  notes                 String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  customer              User              @relation("RentalOrderCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  vendor                User              @relation("RentalOrderVendor", fields: [vendorId], references: [id], onDelete: Restrict)
+  priceList             PriceList?        @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  items                 RentalOrderItem[]
+  payments              RentalPayment[]
+  securityDeposit       SecurityDeposit?
+
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([priceListId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([rentalStart, rentalEnd])
+}
+
+model RentalOrderItem {
+  id            String          @id @default(cuid())
+  rentalOrderId String
+  productId     String
+  variantId     String?
+  assetId       String?
+  quantity      Int             @default(1)
+  rentalPrice   Decimal         @db.Decimal(12, 2)
+  deposit       Decimal         @default(0) @db.Decimal(12, 2)
+  subtotal      Decimal         @db.Decimal(12, 2)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  rentalOrder   RentalOrder     @relation(fields: [rentalOrderId], references: [id], onDelete: Cascade)
+  product       Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant       ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  asset         ProductAsset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([rentalOrderId])
+  @@index([productId])
+  @@index([variantId])
+  @@index([assetId])
+}
+
+model RentalPayment {
+  id            String        @id @default(cuid())
+  rentalOrderId String
+  amount        Decimal       @db.Decimal(12, 2)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  rentalOrder   RentalOrder   @relation(fields: [rentalOrderId], references: [id], onDelete: Cascade)
+
+  @@index([rentalOrderId])
+  @@index([status])
+  @@index([paidAt])
+}
+
+model SecurityDeposit {
+  id             String                @id @default(cuid())
+  rentalOrderId  String                @unique
+  amount         Decimal               @db.Decimal(12, 2)
+  refundedAmount Decimal               @default(0) @db.Decimal(12, 2)
+  deductedAmount Decimal               @default(0) @db.Decimal(12, 2)
+  status         SecurityDepositStatus @default(PENDING)
+  collectedAt    DateTime?
+  refundedAt     DateTime?
+  notes          String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  rentalOrder    RentalOrder           @relation(fields: [rentalOrderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([collectedAt])
+  @@index([refundedAt])
 }
