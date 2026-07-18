@@ -70,6 +70,11 @@ export const errorHandler: ErrorRequestHandler = (
       const uniqueMessages: Record<string, string> = {
         email: "Email already exists",
         gstNumber: "GST number already exists",
+        slug: "Product slug already exists",
+        sku: "SKU already exists",
+        assetTag: "Asset tag already exists",
+        barcode: "Barcode already exists",
+        qrCode: "QR code already exists",
       };
       const message =
         uniqueMessages[String(targets[0])] ??
@@ -78,6 +83,22 @@ export const errorHandler: ErrorRequestHandler = (
       res.status(409).json({
         success: false,
         message,
+      });
+      return;
+    }
+
+    if (error.code === "P2003") {
+      res.status(400).json({
+        success: false,
+        message: "Invalid related record was provided",
+      });
+      return;
+    }
+
+    if (error.code === "P2025") {
+      res.status(404).json({
+        success: false,
+        message: "Record not found",
       });
       return;
     }
