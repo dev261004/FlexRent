@@ -13,6 +13,13 @@ import {
   setPrimaryProductImage,
   uploadProductImages,
 } from "../controllers/product-image.controller";
+import {
+  createProductAsset,
+  deleteProductAsset,
+  getProductAssetById,
+  listProductAssets,
+  updateProductAsset,
+} from "../controllers/product-asset.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
 import {
   createRentalConfig,
@@ -30,8 +37,12 @@ const router = Router();
 /**
  * @swagger
  * tags:
- *   name: Products
- *   description: Product catalog APIs for admin, vendor, and customer access
+ *   - name: Products
+ *     description: Product catalog APIs for admin, vendor, and customer access
+ *   - name: Rental Configuration
+ *     description: Rental configuration APIs for products
+ *   - name: Product Assets
+ *     description: Trackable product asset APIs
  *
  * components:
  *   schemas:
@@ -74,6 +85,40 @@ const router = Router();
  *           example: AVAILABLE
  *         notes:
  *           type: string
+ *     ProductAssetResponse:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         productId:
+ *           type: string
+ *         variantId:
+ *           type: string
+ *           nullable: true
+ *         assetTag:
+ *           type: string
+ *           example: CAM-UNIT-001
+ *         barcode:
+ *           type: string
+ *           nullable: true
+ *         qrCode:
+ *           type: string
+ *           nullable: true
+ *         status:
+ *           type: string
+ *           enum: [AVAILABLE, BOOKED, PICKED_UP, LATE_PICKUP, LATE_RETURN, MAINTENANCE, RETIRED]
+ *         notes:
+ *           type: string
+ *           nullable: true
+ *         variant:
+ *           type: object
+ *           nullable: true
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
  *     ProductVariantInput:
  *       type: object
  *       properties:
@@ -306,7 +351,7 @@ router.post("/", requireRole(["ADMIN", "VENDOR"]), createProduct);
  *   post:
  *     summary: Create rental configuration
  *     description: Admin can configure any product. Vendor can configure only their own product. Only one rental config is allowed per product.
- *     tags: [Products]
+ *     tags: [Rental Configuration]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -346,7 +391,7 @@ router.post(
  * /api/products/{productId}/rental-config:
  *   get:
  *     summary: Get product rental configuration
- *     tags: [Products]
+ *     tags: [Rental Configuration]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -373,7 +418,7 @@ router.get("/:productId/rental-config", getRentalConfig);
  *   put:
  *     summary: Update product rental configuration
  *     description: Admin can update any product rental config. Vendor can update only their own product rental config.
- *     tags: [Products]
+ *     tags: [Rental Configuration]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -408,6 +453,221 @@ router.put(
 
 /**
  * @swagger
+ * /api/products/{productId}/assets:
+ *   post:
+ *     summary: Create product asset
+ *     description: Admin can create assets for any product. Vendor can create assets only for their own products.
+ *     tags: [Product Assets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductAssetInput'
+ *     responses:
+ *       201:
+ *         description: Product asset created successfully
+ *       400:
+ *         description: Validation error or invalid variant
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product not found
+ *       409:
+ *         description: Asset tag, barcode, or QR code already exists
+ */
+router.post(
+  "/:productId/assets",
+  requireRole(["ADMIN", "VENDOR"]),
+  createProductAsset
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/assets:
+ *   get:
+ *     summary: List product assets
+ *     tags: [Product Assets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [AVAILABLE, BOOKED, PICKED_UP, LATE_PICKUP, LATE_RETURN, MAINTENANCE, RETIRED]
+ *       - in: query
+ *         name: variantId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [assetTag, status, createdAt, updatedAt]
+ *           default: createdAt
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *     responses:
+ *       200:
+ *         description: Product assets fetched successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Vendor cannot access another vendor product
+ *       404:
+ *         description: Product not found
+ */
+router.get("/:productId/assets", listProductAssets);
+
+/**
+ * @swagger
+ * /api/products/{productId}/assets/{assetId}:
+ *   get:
+ *     summary: Get product asset by id
+ *     tags: [Product Assets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: assetId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product asset fetched successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Vendor cannot access another vendor product
+ *       404:
+ *         description: Product asset not found
+ */
+router.get("/:productId/assets/:assetId", getProductAssetById);
+
+/**
+ * @swagger
+ * /api/products/{productId}/assets/{assetId}:
+ *   put:
+ *     summary: Update product asset
+ *     description: Admin can update any product asset. Vendor can update only assets for their own products.
+ *     tags: [Product Assets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: assetId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductAssetInput'
+ *     responses:
+ *       200:
+ *         description: Product asset updated successfully
+ *       400:
+ *         description: Validation error or invalid variant
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product asset not found
+ *       409:
+ *         description: Asset tag, barcode, or QR code already exists
+ */
+router.put(
+  "/:productId/assets/:assetId",
+  requireRole(["ADMIN", "VENDOR"]),
+  updateProductAsset
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/assets/{assetId}:
+ *   delete:
+ *     summary: Delete product asset
+ *     description: Permanently deletes a product asset.
+ *     tags: [Product Assets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: assetId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product asset deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Product asset not found
+ */
+router.delete(
+  "/:productId/assets/:assetId",
+  requireRole(["ADMIN", "VENDOR"]),
+  deleteProductAsset
+);
+
+/**
+ * @swagger
  * /api/products/{productId}/images:
  *   post:
  *     summary: Upload product images
@@ -437,6 +697,10 @@ router.put(
  *                   format: binary
  *               altText:
  *                 type: string
+ *           encoding:
+ *             images:
+ *               style: form
+ *               explode: true
  *     responses:
  *       201:
  *         description: Product images uploaded successfully
