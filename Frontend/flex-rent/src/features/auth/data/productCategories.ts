@@ -1,0 +1,18 @@
+export const PRODUCT_CATEGORIES = [
+  { value: "electronics", label: "Electronics & Gadgets" },
+  { value: "tools", label: "Tools & Equipment" },
+  { value: "vehicles", label: "Vehicles & Transportation" },
+  { value: "furniture", label: "Furniture & Home Decor" },
+  { value: "sports", label: "Sports & Outdoor Recreation" },
+  { value: "party", label: "Party & Event Supplies" },
+  { value: "cameras", label: "Cameras & Photography" },
+  { value: "audio", label: "Audio & Music Equipment" },
+  { value: "gardening", label: "Gardening & Landscaping" },
+  { value: "kitchen", label: "Kitchen & Dining" },
+  { value: "books", label: "Books & Media" },
+  { value: "toys", label: "Toys & Games" },
+  { value: "medical", label: "Medical Equipment" },
+  { value: "clothing", label: "Clothing & Accessories" },
+  { value: "camping", label: "Camping & Hiking Gear" },
+  { value: "other", label: "Other" },
+] as const;
