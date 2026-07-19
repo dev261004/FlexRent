@@ -213,6 +213,8 @@ export class ProductService {
 
     if (query.status) {
       where.status = query.status;
+    } else {
+      where.status = { not: "ARCHIVED" };
     }
 
     if (query.type) {
@@ -256,6 +258,10 @@ export class ProductService {
     user: ProductRequester
   ): asserts product is ProductDetailRecord {
     if (!product) {
+      throw new AppError(404, "Product not found");
+    }
+
+    if (product.status === "ARCHIVED") {
       throw new AppError(404, "Product not found");
     }
 

@@ -74,7 +74,7 @@ const optionalNullableId = (fieldName: string) =>
       .optional()
   );
 
-const nonNegativeMoney = (fieldName: string) =>
+const moneyGreaterThanTen = (fieldName: string) =>
   z.preprocess(
     emptyStringToUndefined,
     z.coerce
@@ -83,7 +83,28 @@ const nonNegativeMoney = (fieldName: string) =>
         invalid_type_error: `${fieldName} must be a number`,
       })
       .finite(`${fieldName} must be a valid number`)
-      .min(0, `${fieldName} cannot be negative`)
+      .gt(10, `${fieldName} must be greater than 10`)
+  );
+
+const optionalMoneyGreaterThanTen = (fieldName: string) =>
+  z.preprocess(
+    emptyStringToUndefined,
+    z.coerce
+      .number({ invalid_type_error: `${fieldName} must be a number` })
+      .finite(`${fieldName} must be a valid number`)
+      .gt(10, `${fieldName} must be greater than 10`)
+      .optional()
+  );
+
+const optionalNullableMoneyGreaterThanTen = (fieldName: string) =>
+  z.preprocess(
+    emptyStringToNull,
+    z.coerce
+      .number({ invalid_type_error: `${fieldName} must be a number` })
+      .finite(`${fieldName} must be a valid number`)
+      .gt(10, `${fieldName} must be greater than 10`)
+      .nullable()
+      .optional()
   );
 
 const optionalNonNegativeMoney = (fieldName: string) =>
@@ -191,8 +212,8 @@ export const createProductSchema = z
     type: z.enum(PRODUCT_TYPES).optional(),
     status: z.enum(PRODUCT_STATUSES).optional(),
     quantityOnHand: requiredNonNegativeInt("Quantity on hand").optional(),
-    salesPrice: nonNegativeMoney("Sales price"),
-    costPrice: optionalNonNegativeMoney("Cost price"),
+    salesPrice: moneyGreaterThanTen("Sales price"),
+    costPrice: optionalMoneyGreaterThanTen("Cost price"),
     categoryId: optionalId("Category id"),
     vendorId: optionalId("Vendor id"),
     images: z.array(productImageSchema).max(20).optional(),
@@ -212,8 +233,8 @@ export const updateProductSchema = z
     type: z.enum(PRODUCT_TYPES).optional(),
     status: z.enum(PRODUCT_STATUSES).optional(),
     quantityOnHand: optionalNonNegativeInt("Quantity on hand"),
-    salesPrice: optionalNonNegativeMoney("Sales price"),
-    costPrice: optionalNullableNonNegativeMoney("Cost price"),
+    salesPrice: optionalMoneyGreaterThanTen("Sales price"),
+    costPrice: optionalNullableMoneyGreaterThanTen("Cost price"),
     categoryId: optionalNullableId("Category id"),
     vendorId: optionalNullableId("Vendor id"),
     images: z.array(productImageSchema).max(20).optional(),
