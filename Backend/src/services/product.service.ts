@@ -236,6 +236,7 @@ export class ProductService {
 
     if (user.role === "CUSTOMER") {
       where.status = "ACTIVE";
+      where.quantityOnHand = { gt: 0 };
     }
 
     return where;
@@ -259,6 +260,10 @@ export class ProductService {
     }
 
     if (user.role === "CUSTOMER" && product.status !== "ACTIVE") {
+      throw new AppError(404, "Product not found");
+    }
+
+    if (user.role === "CUSTOMER" && product.quantityOnHand <= 0) {
       throw new AppError(404, "Product not found");
     }
 

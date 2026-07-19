@@ -351,6 +351,38 @@ export class RentalOrderRepository {
     });
   }
 
+  decrementProductQuantity(
+    productId: string,
+    quantity: number,
+    db: PrismaExecutor = prisma
+  ) {
+    return (db as any).product.updateMany({
+      where: {
+        id: productId,
+        quantityOnHand: { gte: quantity },
+      },
+      data: {
+        quantityOnHand: { decrement: quantity },
+      },
+    });
+  }
+
+  decrementVariantQuantity(
+    variantId: string,
+    quantity: number,
+    db: PrismaExecutor = prisma
+  ) {
+    return (db as any).productVariant.updateMany({
+      where: {
+        id: variantId,
+        quantityOnHand: { gte: quantity },
+      },
+      data: {
+        quantityOnHand: { decrement: quantity },
+      },
+    });
+  }
+
   transaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return prisma.$transaction(callback);
   }

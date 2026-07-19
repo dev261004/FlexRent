@@ -52,6 +52,7 @@ export class RentalOrderService {
     if (order.status !== "QUOTATION") throw new AppError(400, "Only quotation rental orders can be confirmed");
 
     const updated = await rentalOrderRepository.transaction(async (tx) => {
+      await this.decreaseApprovedOrderStock(order, tx);
       const depositAmount = toNumber(order.securityDepositAmount);
       if (depositAmount > 0) {
         await rentalOrderRepository.createPayment({ rentalOrderId: orderId, amount: depositAmount, method: payload.method, status: "PAID", transactionId: payload.transactionId ?? null, paidAt: new Date(), notes: this.formatPaymentNotes("SECURITY_DEPOSIT", payload.notes) }, tx);
@@ -696,13 +697,17 @@ export class RentalOrderService {
     this.assertWritable(order, user);
     this.assertAcceptRejectAllowed(order);
 
-    const acceptedOrder = await rentalOrderRepository.acceptRentalOrder(orderId, {
-      status: "CONFIRMED",
-      approvedAt: new Date(),
-      approvedBy: user.id,
-      rejectedAt: null,
-      rejectedBy: null,
-      rejectionReason: null,
+    const acceptedOrder = await rentalOrderRepository.transaction(async (tx) => {
+      await this.decreaseApprovedOrderStock(order, tx);
+
+      return rentalOrderRepository.acceptRentalOrder(orderId, {
+        status: "CONFIRMED",
+        approvedAt: new Date(),
+        approvedBy: user.id,
+        rejectedAt: null,
+        rejectedBy: null,
+        rejectionReason: null,
+      }, tx);
     });
 
     this.notifyCustomerOrderAccepted(acceptedOrder);
@@ -1020,6 +1025,35 @@ export class RentalOrderService {
   private assertAcceptRejectAllowed(order: RentalOrderRecord) {
     if (order.status !== "QUOTATION") {
       throw new AppError(400, "Only quotation rental requests can be accepted or rejected");
+    }
+  }
+
+  private async decreaseApprovedOrderStock(
+    order: RentalOrderRecord,
+    tx: Prisma.TransactionClient
+  ): Promise<void> {
+    for (const item of order.items) {
+      const productResult = await rentalOrderRepository.decrementProductQuantity(
+        item.productId,
+        item.quantity,
+        tx
+      );
+
+      if (productResult.count !== 1) {
+        throw new AppError(409, "Product quantity is not available for approval");
+      }
+
+      if (item.variantId) {
+        const variantResult = await rentalOrderRepository.decrementVariantQuantity(
+          item.variantId,
+          item.quantity,
+          tx
+        );
+
+        if (variantResult.count !== 1) {
+          throw new AppError(409, "Product variant quantity is not available for approval");
+        }
+      }
     }
   }
 
