@@ -11,6 +11,9 @@ import {
   createPaymentSchema,
   paymentOrderParamsSchema,
   refundDepositSchema,
+  rejectUpiPaymentSchema,
+  submitUpiPaymentSchema,
+  upiPaymentParamsSchema,
 } from "../validations/payment.validation";
 import {
   createRentalOrderSchema,
@@ -239,6 +242,78 @@ export const rejectRentalOrder = asyncHandler(
       success: true,
       message: "Rental request rejected successfully",
       data: { rentalOrder },
+    });
+  }
+);
+
+export const getPaymentQR = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = upiPaymentParamsSchema.parse(req.params);
+    const paymentQR = await rentalOrderService.generatePaymentQR(id, user);
+
+    res.json({
+      success: true,
+      message: "UPI payment link generated successfully",
+      data: { paymentQR },
+    });
+  }
+);
+
+export const submitPayment = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = upiPaymentParamsSchema.parse(req.params);
+    const payload = submitUpiPaymentSchema.parse(req.body);
+    const payment = await rentalOrderService.submitUpiPayment(id, payload, user);
+
+    res.status(201).json({
+      success: true,
+      message: "Payment submitted successfully",
+      data: { payment },
+    });
+  }
+);
+
+export const getPayment = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = upiPaymentParamsSchema.parse(req.params);
+    const payment = await rentalOrderService.getUpiPayment(id, user);
+
+    res.json({
+      success: true,
+      message: "Payment details fetched successfully",
+      data: { payment },
+    });
+  }
+);
+
+export const verifyPayment = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = upiPaymentParamsSchema.parse(req.params);
+    const payment = await rentalOrderService.verifyUpiPayment(id, user);
+
+    res.json({
+      success: true,
+      message: "Payment verified successfully",
+      data: { payment },
+    });
+  }
+);
+
+export const rejectPayment = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = upiPaymentParamsSchema.parse(req.params);
+    const payload = rejectUpiPaymentSchema.parse(req.body);
+    const payment = await rentalOrderService.rejectUpiPayment(id, payload, user);
+
+    res.json({
+      success: true,
+      message: "Payment rejected successfully",
+      data: { payment },
     });
   }
 );

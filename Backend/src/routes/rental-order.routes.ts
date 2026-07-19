@@ -9,11 +9,16 @@ import {
   getRentalOrderPayments,
   getRentalOrderTimeline,
   getRentalOrders,
+  getPayment,
+  getPaymentQR,
   pickupRentalOrder,
   refundRentalOrderDeposit,
   rejectRentalOrder,
+  rejectPayment,
   returnRentalOrder,
+  submitPayment,
   updateRentalOrder,
+  verifyPayment,
 } from "../controllers/rental-order.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
 
@@ -149,6 +154,26 @@ const router = Router();
  *           minLength: 5
  *           maxLength: 500
  *           example: Product unavailable for selected dates.
+ *     SubmitUpiPaymentInput:
+ *       type: object
+ *       required:
+ *         - transactionId
+ *       properties:
+ *         transactionId:
+ *           type: string
+ *           minLength: 8
+ *           maxLength: 50
+ *           example: "123456789012"
+ *         paymentProof:
+ *           type: string
+ *           example: https://example.com/payment-proof.jpg
+ *     RejectUpiPaymentInput:
+ *       type: object
+ *       properties:
+ *         remarks:
+ *           type: string
+ *           maxLength: 500
+ *           example: Invalid transaction.
  */
 
 router.use(verifyJWT);
@@ -379,6 +404,143 @@ router.post(
  *         description: Rental order payments fetched successfully
  */
 router.get("/:orderId/payments", getRentalOrderPayments);
+
+/**
+ * @swagger
+ * /api/rental-orders/{id}/payment-qr:
+ *   get:
+ *     summary: Generate UPI payment link
+ *     description: Customer receives a UPI URL. Frontend generates QR from this URL.
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: UPI payment link generated successfully
+ *       400:
+ *         description: Order is not payable or vendor UPI is missing
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Rental order not found
+ */
+router.get("/:id/payment-qr", requireRole(["CUSTOMER"]), getPaymentQR);
+
+/**
+ * @swagger
+ * /api/rental-orders/{id}/payment-submit:
+ *   post:
+ *     summary: Submit UPI payment UTR
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SubmitUpiPaymentInput'
+ *     responses:
+ *       201:
+ *         description: Payment submitted successfully
+ *       409:
+ *         description: Payment already submitted
+ */
+router.post("/:id/payment-submit", requireRole(["CUSTOMER"]), submitPayment);
+
+/**
+ * @swagger
+ * /api/rental-orders/{id}/payment:
+ *   get:
+ *     summary: Get latest UPI payment details
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Payment details fetched successfully
+ *       404:
+ *         description: Payment not found
+ */
+router.get("/:id/payment", getPayment);
+
+/**
+ * @swagger
+ * /api/rental-orders/{id}/payment-verify:
+ *   post:
+ *     summary: Verify submitted UPI payment
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Payment verified successfully
+ *       400:
+ *         description: Payment cannot be verified
+ *       403:
+ *         description: Forbidden
+ */
+router.post(
+  "/:id/payment-verify",
+  requireRole(["ADMIN", "VENDOR"]),
+  verifyPayment
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{id}/payment-reject:
+ *   post:
+ *     summary: Reject submitted UPI payment
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RejectUpiPaymentInput'
+ *     responses:
+ *       200:
+ *         description: Payment rejected successfully
+ *       400:
+ *         description: Payment cannot be rejected
+ */
+router.post(
+  "/:id/payment-reject",
+  requireRole(["ADMIN", "VENDOR"]),
+  rejectPayment
+);
 
 /**
  * @swagger

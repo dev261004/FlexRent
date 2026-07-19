@@ -1,0 +1,8 @@
+ALTER TYPE "PaymentStatus" ADD VALUE IF NOT EXISTS 'PAYMENT_SUBMITTED';
+
+ALTER TABLE "User" ADD COLUMN "upiId" TEXT;
+
+ALTER TABLE "RentalPayment" ADD COLUMN "paymentProof" TEXT;
+ALTER TABLE "RentalPayment" ADD COLUMN "verifiedAt" TIMESTAMP(3);
+ALTER TABLE "RentalPayment" ADD COLUMN "verifiedBy" TEXT;
+ALTER TABLE "RentalPayment" ADD COLUMN "remarks" TEXT;

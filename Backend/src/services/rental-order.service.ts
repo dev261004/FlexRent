@@ -17,7 +17,9 @@ import {
 } from "../validations/pickup-return.validation";
 import {
   CreatePaymentInput,
+  RejectUpiPaymentInput,
   RefundDepositInput,
+  SubmitUpiPaymentInput,
 } from "../validations/payment.validation";
 import { RejectRentalOrderInput } from "../validations/rental-order-workflow.validation";
 
@@ -520,6 +522,175 @@ export class RentalOrderService {
     };
   }
 
+  async generatePaymentQR(orderId: string, user: ProductRequester) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertPaymentCustomerAccess(order, user);
+
+    if (order.status !== "CONFIRMED") {
+      throw new AppError(400, "Payment QR can be generated only for confirmed rental orders");
+    }
+
+    if (this.isPaymentCompleted(order)) {
+      throw new AppError(400, "Payment is already completed for this rental order");
+    }
+
+    const amount = this.calculateOutstandingBalance(order);
+    if (amount <= 0) {
+      throw new AppError(400, "No outstanding amount is available for payment");
+    }
+
+    const upiId = order.vendor?.upiId;
+    if (!upiId) {
+      throw new AppError(400, "Vendor UPI ID is not configured");
+    }
+
+    const vendorName = this.getVendorDisplayName(order.vendor);
+    const upiLink = rentalOrderRepository.generatePaymentLink({
+      upiId,
+      vendorName,
+      amount,
+      rentalNumber: order.rentalNumber,
+    });
+
+    return {
+      amount: Number(amount.toFixed(2)),
+      vendorName,
+      upiId,
+      upiLink,
+    };
+  }
+
+  async submitUpiPayment(
+    orderId: string,
+    payload: SubmitUpiPaymentInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertPaymentCustomerAccess(order, user);
+
+    if (order.status !== "CONFIRMED") {
+      throw new AppError(400, "Payment can be submitted only for confirmed rental orders");
+    }
+
+    if (this.isPaymentCompleted(order)) {
+      throw new AppError(400, "Payment is already completed for this rental order");
+    }
+
+    if (this.hasSubmittedPayment(order)) {
+      throw new AppError(409, "Payment is already submitted and awaiting verification");
+    }
+
+    const amount = this.calculateOutstandingBalance(order);
+    if (amount <= 0) {
+      throw new AppError(400, "No outstanding amount is available for payment");
+    }
+
+    const payment = await rentalOrderRepository.transaction(async (tx) => {
+      const submittedPayment = await rentalOrderRepository.submitPayment(
+        {
+          rentalOrderId: orderId,
+          amount,
+          method: "UPI",
+          status: "PAYMENT_SUBMITTED",
+          transactionId: payload.transactionId,
+          paymentProof: payload.paymentProof ?? null,
+          paidAt: new Date(),
+          notes: this.formatPaymentNotes("UPI_PAYMENT_SUBMITTED"),
+        },
+        tx
+      );
+
+      await rentalOrderRepository.updatePaymentStatus(
+        orderId,
+        "PAYMENT_SUBMITTED",
+        tx
+      );
+
+      return submittedPayment;
+    });
+
+    return this.mapUpiPayment(payment, order);
+  }
+
+  async getUpiPayment(orderId: string, user: ProductRequester) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertReadable(order, user);
+
+    const payment = await rentalOrderRepository.getPayment(orderId);
+    if (!payment) {
+      throw new AppError(404, "Payment not found for this rental order");
+    }
+
+    return this.mapUpiPayment(payment, order);
+  }
+
+  async verifyUpiPayment(orderId: string, user: ProductRequester) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertWritable(order, user);
+    this.assertOrderCanHavePaymentVerified(order);
+
+    const payment = await rentalOrderRepository.getSubmittedPayment(orderId);
+    if (!payment) {
+      throw new AppError(404, "Submitted payment not found");
+    }
+
+    const verifiedPayment = await rentalOrderRepository.transaction(async (tx) => {
+      const updatedPayment = await rentalOrderRepository.verifyPayment(
+        payment.id,
+        {
+          status: "PAID",
+          verifiedAt: new Date(),
+          verifiedBy: user.id,
+          remarks: null,
+        },
+        tx
+      );
+
+      const updatedOrder = await rentalOrderRepository.getRentalOrder(orderId, tx);
+      this.assertRuleOrderLoaded(updatedOrder);
+      await rentalOrderRepository.updatePaymentStatus(
+        orderId,
+        this.calculatePaymentStatus(updatedOrder),
+        tx
+      );
+
+      return updatedPayment;
+    });
+
+    return this.mapUpiPayment(verifiedPayment, order);
+  }
+
+  async rejectUpiPayment(
+    orderId: string,
+    payload: RejectUpiPaymentInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    this.assertWritable(order, user);
+    this.assertOrderCanHavePaymentVerified(order);
+
+    const payment = await rentalOrderRepository.getSubmittedPayment(orderId);
+    if (!payment) {
+      throw new AppError(404, "Submitted payment not found");
+    }
+
+    const rejectedPayment = await rentalOrderRepository.transaction(async (tx) => {
+      const updatedPayment = await rentalOrderRepository.rejectPayment(
+        payment.id,
+        {
+          status: "FAILED",
+          remarks: payload.remarks ?? null,
+        },
+        tx
+      );
+
+      await rentalOrderRepository.updatePaymentStatus(orderId, "PENDING", tx);
+      return updatedPayment;
+    });
+
+    return this.mapUpiPayment(rejectedPayment, order);
+  }
+
   async acceptRentalOrder(orderId: string, user: ProductRequester) {
     const order = await rentalOrderRepository.getRentalOrder(orderId);
     this.assertWritable(order, user);
@@ -879,6 +1050,46 @@ export class RentalOrderService {
     return Math.max(toNumber(order.grandTotal) - this.calculateTotalPaid(order), 0);
   }
 
+  private isPaymentCompleted(order: RentalOrderRecord): boolean {
+    return order.paymentStatus === "PAID" || this.calculateOutstandingBalance(order) <= 0;
+  }
+
+  private hasSubmittedPayment(order: RentalOrderRecord): boolean {
+    return order.payments.some((payment: any) => payment.status === "PAYMENT_SUBMITTED");
+  }
+
+  private assertPaymentCustomerAccess(
+    order: RentalOrderRecord | null,
+    user: ProductRequester
+  ): asserts order is RentalOrderRecord {
+    if (!order) throw new AppError(404, "Rental order not found");
+
+    if (user.role !== "CUSTOMER") {
+      throw new AppError(403, "Only customers can access this payment action");
+    }
+
+    if (order.customerId !== user.id) {
+      throw new AppError(403, "Customers can only access their own rental order payments");
+    }
+  }
+
+  private assertOrderCanHavePaymentVerified(order: RentalOrderRecord) {
+    if (order.status === "CANCELLED") {
+      throw new AppError(400, "Cancelled rental orders cannot be verified for payment");
+    }
+
+    if (order.paymentStatus === "PAID") {
+      throw new AppError(400, "Payment is already verified");
+    }
+  }
+
+  private getVendorDisplayName(vendor: any): string {
+    if (vendor.companyName) return vendor.companyName;
+
+    const fullName = [vendor.firstName, vendor.lastName].filter(Boolean).join(" ");
+    return fullName || vendor.email;
+  }
+
   private async markSecurityDepositCollected(
     order: RentalOrderRecord,
     tx: Prisma.TransactionClient
@@ -1030,8 +1241,31 @@ export class RentalOrderService {
       ...payment,
       amount: decimalToString(payment.amount),
       paidAt: payment.paidAt?.toISOString() ?? null,
+      verifiedAt: payment.verifiedAt?.toISOString() ?? null,
       createdAt: payment.createdAt.toISOString(),
       updatedAt: payment.updatedAt.toISOString(),
+    };
+  }
+
+  private mapUpiPayment(payment: any, order: RentalOrderRecord) {
+    return {
+      id: payment.id,
+      rentalOrderId: payment.rentalOrderId,
+      rentalNumber: order.rentalNumber,
+      amount: decimalToString(payment.amount),
+      status: payment.status,
+      transactionId: payment.transactionId,
+      paymentProof: payment.paymentProof ?? null,
+      remarks: payment.remarks ?? null,
+      vendor: {
+        id: order.vendor.id,
+        name: this.getVendorDisplayName(order.vendor),
+        upiId: order.vendor.upiId ?? null,
+      },
+      submittedAt: payment.createdAt.toISOString(),
+      paidAt: payment.paidAt?.toISOString() ?? null,
+      verifiedAt: payment.verifiedAt?.toISOString() ?? null,
+      verifiedBy: payment.verifiedBy ?? null,
     };
   }
 

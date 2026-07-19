@@ -131,3 +131,6 @@ Backend/build/
 
 Backend/package-lock.json
 package-lock.json
+
+# Uploaded images
+Backend/uploads/

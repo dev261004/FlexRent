@@ -21,6 +21,7 @@ const rentalOrderInclude = {
       lastName: true,
       role: true,
       companyName: true,
+      upiId: true,
     },
   },
   priceList: true,
@@ -278,6 +279,58 @@ export class RentalOrderRepository {
   ) {
     return (db as any).securityDeposit.update({
       where: { rentalOrderId },
+      data,
+    });
+  }
+
+  generatePaymentLink(data: {
+    upiId: string;
+    vendorName: string;
+    amount: number;
+    rentalNumber: string;
+  }) {
+    const params = new URLSearchParams({
+      pa: data.upiId,
+      pn: data.vendorName,
+      am: data.amount.toFixed(2),
+      cu: "INR",
+      tn: `Rental Order ${data.rentalNumber}`,
+    });
+
+    return `upi://pay?${params.toString()}`;
+  }
+
+  submitPayment(data: any, db: PrismaExecutor = prisma) {
+    return (db as any).rentalPayment.create({ data });
+  }
+
+  getPayment(orderId: string, db: PrismaExecutor = prisma) {
+    return (db as any).rentalPayment.findFirst({
+      where: { rentalOrderId: orderId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+  }
+
+  getSubmittedPayment(orderId: string, db: PrismaExecutor = prisma) {
+    return (db as any).rentalPayment.findFirst({
+      where: {
+        rentalOrderId: orderId,
+        status: "PAYMENT_SUBMITTED",
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+  }
+
+  verifyPayment(paymentId: string, data: any, db: PrismaExecutor = prisma) {
+    return (db as any).rentalPayment.update({
+      where: { id: paymentId },
+      data,
+    });
+  }
+
+  rejectPayment(paymentId: string, data: any, db: PrismaExecutor = prisma) {
+    return (db as any).rentalPayment.update({
+      where: { id: paymentId },
       data,
     });
   }

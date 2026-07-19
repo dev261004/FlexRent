@@ -62,5 +62,30 @@ export const refundDepositSchema = z
   })
   .strict();
 
+export const upiPaymentParamsSchema = z
+  .object({
+    id: idSchema,
+  })
+  .strict();
+
+export const submitUpiPaymentSchema = z
+  .object({
+    transactionId: z
+      .string({ required_error: "Transaction id is required" })
+      .trim()
+      .min(8, "Transaction id must be at least 8 characters")
+      .max(50, "Transaction id must be at most 50 characters"),
+    paymentProof: optionalText(500),
+  })
+  .strict();
+
+export const rejectUpiPaymentSchema = z
+  .object({
+    remarks: optionalText(500),
+  })
+  .strict();
+
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
 export type RefundDepositInput = z.infer<typeof refundDepositSchema>;
+export type SubmitUpiPaymentInput = z.infer<typeof submitUpiPaymentSchema>;
+export type RejectUpiPaymentInput = z.infer<typeof rejectUpiPaymentSchema>;
