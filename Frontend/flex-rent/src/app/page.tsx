@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Footer } from "@/components/ui/Footer";
 import {
   Zap,
   Wrench,
@@ -95,25 +96,7 @@ export default function Home() {
 
       
 
-      <footer className="border-t border-white/5 px-6 py-6">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <p className="font-mono text-xs text-chalk">flexrent — 2026</p>
-          <div className="flex items-center gap-6">
-            <Link
-              href="/login"
-              className="font-mono text-xs text-chalk transition-colors hover:text-text"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/signup"
-              className="font-mono text-xs text-chalk transition-colors hover:text-text"
-            >
-              Get started
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
