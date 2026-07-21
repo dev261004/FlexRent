@@ -1,13 +1,16 @@
 "use client";
 
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, Sun, Moon } from "lucide-react";
 import { VendorSidebar } from "@/components/vendor/VendorSidebar";
+import { useTheme } from "@/components/admin/ThemeProvider";
 
 export default function VendorLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { theme, toggleTheme, ready } = useTheme();
+
   return (
     <div className="min-h-screen bg-surface">
       <VendorSidebar />
@@ -18,6 +21,16 @@ export default function VendorLayout({
             <input aria-label="Search vendor workspace" placeholder="Search products, orders, customers..." className="w-full rounded-xl border border-border bg-surface-raised py-2.5 pl-10 pr-4 text-sm text-text outline-none transition placeholder:text-chalk/70 focus:border-accent/70 focus:ring-2 focus:ring-accent/15" />
           </div>
           <div className="ml-6 flex items-center gap-4">
+            {ready && (
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="relative rounded-xl border border-border bg-surface-raised p-2.5 text-chalk transition hover:border-accent/40 hover:text-text"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+            )}
             <button type="button" aria-label="View notifications" className="relative rounded-xl border border-border bg-surface-raised p-2.5 text-chalk transition hover:border-accent/40 hover:text-text"><Bell size={18} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent" /></button>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-black">VR</div>
           </div>

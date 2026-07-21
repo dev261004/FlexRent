@@ -119,16 +119,18 @@ function LeafLink({
     <Link
       href={item.href}
       onClick={onNavigate}
-      className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors ${
+      className={`group flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-300 ${
         nested ? "px-3 py-2" : "px-3 py-2.5"
       } ${
         active
-          ? "bg-accent text-black"
+          ? "bg-accent text-black shadow-md shadow-accent/20"
           : "text-chalk hover:bg-black/5 hover:text-text dark:hover:bg-white/5"
       }`}
     >
-      <Icon size={nested ? 16 : 18} />
-      <span className="truncate">{item.label}</span>
+      <div className={`transition-transform duration-300 ${!active && "group-hover:scale-110"}`}>
+        <Icon size={nested ? 16 : 18} />
+      </div>
+      <span className={`truncate transition-transform duration-300 ${!active && "group-hover:translate-x-1"}`}>{item.label}</span>
     </Link>
   );
 }
@@ -150,33 +152,37 @@ function CollapsibleGroup({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+        className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-300 ${
           hasActive
             ? "bg-black/5 text-text dark:bg-white/5"
             : "text-chalk hover:bg-black/5 hover:text-text dark:hover:bg-white/5"
         }`}
         aria-expanded={expanded}
       >
-        <Icon size={18} className={hasActive ? "text-accent" : undefined} />
-        <span className="flex-1 text-left">{group.label}</span>
+        <div className="transition-transform duration-300 group-hover:scale-110">
+          <Icon size={18} className={hasActive ? "text-accent" : undefined} />
+        </div>
+        <span className="flex-1 text-left transition-transform duration-300 group-hover:translate-x-1">{group.label}</span>
         <ChevronDown
           size={16}
-          className={`transition-transform ${expanded ? "rotate-180" : ""}`}
+          className={`transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
         />
       </button>
 
-      {expanded && (
-        <div className="ml-3 space-y-0.5 border-l border-border pl-2">
-          {group.children.map((child) => (
-            <LeafLink
-              key={`${group.id}-${child.href}-${child.label}`}
-              item={child}
-              onNavigate={onNavigate}
-              nested
-            />
-          ))}
-        </div>
-      )}
+      <div 
+        className={`ml-3 space-y-0.5 border-l border-border/50 pl-2 overflow-hidden transition-all duration-300 ease-in-out ${
+          expanded ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"
+        }`}
+      >
+        {group.children.map((child) => (
+          <LeafLink
+            key={`${group.id}-${child.href}-${child.label}`}
+            item={child}
+            onNavigate={onNavigate}
+            nested
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -194,33 +200,16 @@ function SidebarSettings({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   return (
-    <div className="space-y-2 border-t border-border px-3 py-4">
-      <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-chalk/70">
-        Settings
-      </p>
-
-      <Link
-        href="/admin/account"
-        onClick={onNavigate}
-        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-          settingsActive
-            ? "bg-accent text-black"
-            : "text-chalk hover:bg-black/5 hover:text-text dark:hover:bg-white/5"
-        }`}
-      >
-        <Palette size={18} />
-        <span>Appearance</span>
-      </Link>
-
-      <ThemeToggle compact />
-
+    <div className="border-t border-border/50 px-3 py-4">
       <button
         type="button"
         onClick={handleLogout}
-        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-chalk transition-colors hover:bg-danger/10 hover:text-danger"
+        className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-chalk transition-all duration-300 hover:bg-danger/10 hover:text-danger dark:hover:bg-danger/20"
       >
-        <LogOut size={18} />
-        <span>Sign out</span>
+        <div className="transition-transform duration-300 group-hover:scale-110">
+          <LogOut size={18} />
+        </div>
+        <span className="transition-transform duration-300 group-hover:translate-x-1">Sign out</span>
       </button>
     </div>
   );
@@ -234,14 +223,14 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="space-y-1">
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-chalk/70">
+        <p className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-chalk/70">
           Catalog
         </p>
         <CollapsibleGroup group={createGroup} onNavigate={onNavigate} />
       </div>
 
       <div className="space-y-1">
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-chalk/70">
+        <p className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-chalk/70">
           Organization
         </p>
         <LeafLink item={usersItem} onNavigate={onNavigate} />
@@ -250,7 +239,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="space-y-1">
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-chalk/70">
+        <p className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-chalk/70">
           Documents
         </p>
         <LeafLink item={quotationItem} onNavigate={onNavigate} />
@@ -267,13 +256,13 @@ function SidebarPanel({
   className?: string;
 }) {
   return (
-    <div className={`flex h-full flex-col bg-surface-raised ${className ?? ""}`}>
-      <div className="border-b border-border px-5 py-6">
-        <Link href="/admin/dashboard" onClick={onNavigate} className="block">
-          <p className="font-display text-xl font-semibold text-text">
-            Flexrent
+    <div className={`flex h-full flex-col bg-surface-raised shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-none ${className ?? ""}`}>
+      <div className="border-b border-border/50 px-5 py-6">
+        <Link href="/admin/dashboard" onClick={onNavigate} className="block group">
+          <p className="font-display text-2xl font-bold bg-gradient-to-br from-text to-chalk bg-clip-text text-transparent">
+            flexrent
           </p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+          <p className="mt-1.5 text-xs font-bold uppercase tracking-[0.2em] text-accent">
             Admin
           </p>
         </Link>
@@ -285,15 +274,6 @@ function SidebarPanel({
       <NavLinks onNavigate={onNavigate} />
       <SidebarSettings onNavigate={onNavigate} />
 
-      <div className="border-t border-border px-5 py-4">
-        <Link
-          href="/"
-          onClick={onNavigate}
-          className="text-xs text-chalk transition-colors hover:text-accent"
-        >
-          ← Back to site
-        </Link>
-      </div>
     </div>
   );
 }
@@ -303,12 +283,12 @@ export function AdminSidebar() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface-raised px-4 md:hidden">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border/50 bg-surface-raised px-4 md:hidden">
         <Link
           href="/admin/dashboard"
-          className="font-display text-lg font-semibold text-text"
+          className="font-display text-xl font-bold bg-gradient-to-br from-text to-chalk bg-clip-text text-transparent"
         >
-          flexrent <span className="text-accent">admin</span>
+          flexrent <span className="text-accent text-sm tracking-[0.2em] uppercase">admin</span>
         </Link>
         <button
           type="button"
@@ -334,7 +314,7 @@ export function AdminSidebar() {
         </div>
       )}
 
-      <aside className="fixed left-0 top-0 z-20 hidden h-screen w-[280px] border-r border-border md:block">
+      <aside className="fixed left-0 top-0 z-20 hidden h-screen w-[280px] border-r border-border/50 md:block">
         <SidebarPanel />
       </aside>
     </>

@@ -41,14 +41,16 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void 
     <Link
       href={item.href}
       onClick={onNavigate}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ${
         active
-          ? "bg-accent text-black"
+          ? "bg-accent text-black shadow-md shadow-accent/20"
           : "text-chalk hover:bg-black/5 hover:text-text dark:hover:bg-white/5"
       }`}
     >
-      <Icon size={18} />
-      <span className="truncate">{item.label}</span>
+      <div className={`transition-transform duration-300 ${!active && "group-hover:scale-110"}`}>
+        <Icon size={18} />
+      </div>
+      <span className={`truncate transition-transform duration-300 ${!active && "group-hover:translate-x-1"}`}>{item.label}</span>
     </Link>
   );
 }
@@ -63,11 +65,11 @@ function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   return (
-    <div className="flex h-full flex-col bg-surface-raised">
-      <div className="border-b border-border px-5 py-6">
-        <Link href="/vendor/dashboard" onClick={onNavigate} className="block">
-          <p className="font-display text-xl font-semibold text-text">flexrent</p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+    <div className="flex h-full flex-col bg-surface-raised shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-none">
+      <div className="border-b border-border/50 px-5 py-6">
+        <Link href="/vendor/dashboard" onClick={onNavigate} className="block group">
+          <p className="font-display text-2xl font-bold bg-gradient-to-br from-text to-chalk bg-clip-text text-transparent">flexrent</p>
+          <p className="mt-1.5 text-xs font-bold uppercase tracking-[0.2em] text-accent">
             Vendor
           </p>
         </Link>
@@ -82,38 +84,19 @@ function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="space-y-2 border-t border-border px-3 py-4">
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-chalk/70">
-          Settings
-        </p>
-        <Link
-          href="/vendor/settings"
-          onClick={onNavigate}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-chalk transition-colors hover:bg-black/5 hover:text-text dark:hover:bg-white/5"
-        >
-          <Palette size={18} />
-          <span>Appearance</span>
-        </Link>
-        <ThemeToggle compact />
+      <div className="border-t border-border/50 px-3 py-4">
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-chalk transition-colors hover:bg-black/5 hover:text-text dark:hover:bg-white/5"
+          className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-chalk transition-all duration-300 hover:bg-danger/10 hover:text-danger dark:hover:bg-danger/20"
         >
-          <LogOut size={18} />
-          <span>Sign out</span>
+          <div className="transition-transform duration-300 group-hover:scale-110">
+            <LogOut size={18} />
+          </div>
+          <span className="transition-transform duration-300 group-hover:translate-x-1">Sign out</span>
         </button>
       </div>
 
-      <div className="border-t border-border px-5 py-4">
-        <Link
-          href="/"
-          onClick={onNavigate}
-          className="text-xs text-chalk transition-colors hover:text-accent"
-        >
-          ← Back to site
-        </Link>
-      </div>
     </div>
   );
 }
@@ -123,12 +106,12 @@ export function VendorSidebar() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface-raised px-4 md:hidden">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border/50 bg-surface-raised px-4 md:hidden">
         <Link
           href="/vendor/dashboard"
-          className="font-display text-lg font-semibold text-text"
+          className="font-display text-xl font-bold bg-gradient-to-br from-text to-chalk bg-clip-text text-transparent"
         >
-          flexrent <span className="text-accent">vendor</span>
+          flexrent <span className="text-accent text-sm tracking-[0.2em] uppercase">vendor</span>
         </Link>
         <button
           type="button"
@@ -154,7 +137,7 @@ export function VendorSidebar() {
         </div>
       )}
 
-      <aside className="fixed left-0 top-0 z-20 hidden h-screen w-[280px] border-r border-border md:block">
+      <aside className="fixed left-0 top-0 z-20 hidden h-screen w-[280px] border-r border-border/50 md:block">
         <SidebarPanel />
       </aside>
     </>
