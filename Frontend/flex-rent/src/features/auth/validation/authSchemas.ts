@@ -21,7 +21,7 @@ export const signupSchema = z
     email: z.string().email("Invalid email address"),
     password: passwordSchema,
     confirmPassword: z.string(),
-    phone: z.string().min(10, "Phone number must be at least 10 digits"),
+    phone: z.string().regex(/^\d{10}$/, "Phone number must be exactly 10 digits"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -35,9 +35,9 @@ export const vendorSignupSchema = z
     email: z.string().email("Invalid email address"),
     password: passwordSchema,
     confirmPassword: z.string(),
-    phone: z.string().min(10, "Phone number must be at least 10 digits"),
+    phone: z.string().regex(/^\d{10}$/, "Phone number must be exactly 10 digits"),
     companyName: z.string().min(1, "Company name is required"),
-    gstNumber: z.string().min(15, "GST number must be 15 characters"),
+    gstNumber: z.string().regex(/^[a-zA-Z0-9]{15}$/, "GST number must be exactly 15 alphanumeric characters"),
     productCategory: z.string().min(1, "Please select a category"),
   })
   .refine((data) => data.password === data.confirmPassword, {

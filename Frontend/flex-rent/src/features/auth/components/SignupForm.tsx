@@ -15,10 +15,35 @@ export function SignupForm() {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors },
   } = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      phone: "",
+    },
   });
+
+  const firstNameVal = watch("firstName");
+  const lastNameVal = watch("lastName");
+  const emailVal = watch("email");
+  const passwordVal = watch("password");
+  const confirmPasswordVal = watch("confirmPassword");
+  const phoneVal = watch("phone");
+
+  const allFilled = !!(
+    firstNameVal &&
+    lastNameVal &&
+    emailVal &&
+    passwordVal &&
+    confirmPasswordVal &&
+    phoneVal
+  );
 
   const onSubmit = async (data: SignupInput) => {
     try {
@@ -39,7 +64,11 @@ export function SignupForm() {
           placeholder="First name"
           autoComplete="given-name"
           error={errors.firstName?.message}
-          {...register("firstName")}
+          {...register("firstName", {
+            onChange: (e) => {
+              e.target.value = e.target.value.replace(/[^a-zA-Z]/g, "");
+            },
+          })}
         />
         <Input
           id="lastName"
@@ -47,7 +76,11 @@ export function SignupForm() {
           placeholder="Last name"
           autoComplete="family-name"
           error={errors.lastName?.message}
-          {...register("lastName")}
+          {...register("lastName", {
+            onChange: (e) => {
+              e.target.value = e.target.value.replace(/[^a-zA-Z]/g, "");
+            },
+          })}
         />
       </div>
       <Input
@@ -56,7 +89,11 @@ export function SignupForm() {
         autoComplete="email"
         placeholder="Email address"
         error={errors.email?.message}
-        {...register("email")}
+        {...register("email", {
+          onChange: (e) => {
+            e.target.value = e.target.value.toLowerCase().replace(/\s/g, "");
+          },
+        })}
       />
       <Input
         id="password"
@@ -64,7 +101,11 @@ export function SignupForm() {
         autoComplete="new-password"
         placeholder="Password"
         error={errors.password?.message}
-        {...register("password")}
+        {...register("password", {
+          onChange: (e) => {
+            e.target.value = e.target.value.replace(/\s/g, "");
+          },
+        })}
       />
       <Input
         id="confirmPassword"
@@ -72,7 +113,11 @@ export function SignupForm() {
         autoComplete="new-password"
         placeholder="Confirm password"
         error={errors.confirmPassword?.message}
-        {...register("confirmPassword")}
+        {...register("confirmPassword", {
+          onChange: (e) => {
+            e.target.value = e.target.value.replace(/\s/g, "");
+          },
+        })}
       />
       <Input
         id="phone"
@@ -80,12 +125,16 @@ export function SignupForm() {
         autoComplete="tel"
         placeholder="Phone number"
         error={errors.phone?.message}
-        {...register("phone")}
+        {...register("phone", {
+          onChange: (e) => {
+            e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+          },
+        })}
       />
       {errors.root && (
         <p className="text-sm text-red-400">{errors.root.message}</p>
       )}
-      <Button type="submit" pending={pending}>
+      <Button type="submit" pending={pending} disabled={!allFilled}>
         Create Account
       </Button>
       <p className="text-center text-sm text-chalk">

@@ -14,10 +14,19 @@ export function LoginForm() {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
   });
+
+  const emailVal = watch("email");
+  const passwordVal = watch("password");
+  const allFilled = !!(emailVal && passwordVal);
 
   const onSubmit = async (data: LoginInput) => {
     try {
@@ -43,7 +52,11 @@ export function LoginForm() {
         autoComplete="email"
         placeholder="Email address"
         error={errors.email?.message}
-        {...register("email")}
+        {...register("email", {
+          onChange: (e) => {
+            e.target.value = e.target.value.toLowerCase().replace(/\s/g, "");
+          },
+        })}
       />
       <Input
         id="password"
@@ -51,12 +64,16 @@ export function LoginForm() {
         autoComplete="current-password"
         placeholder="Password"
         error={errors.password?.message}
-        {...register("password")}
+        {...register("password", {
+          onChange: (e) => {
+            e.target.value = e.target.value.replace(/\s/g, "");
+          },
+        })}
       />
       {errors.root && (
         <p className="text-sm text-red-400">{errors.root.message}</p>
       )}
-      <Button type="submit" pending={pending}>
+      <Button type="submit" pending={pending} disabled={!allFilled}>
         Sign In
       </Button>
       <p className="text-center text-sm text-chalk">

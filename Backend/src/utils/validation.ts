@@ -14,7 +14,7 @@ const emptyStringToUndefined = (value: unknown): unknown => {
 const optionalText = (max = 120) =>
   z.preprocess(
     emptyStringToUndefined,
-    z.string().trim().min(1).max(max).optional()
+    z.string().trim().min(1).max(max).optional().nullable()
   );
 
 const requiredText = (fieldName: string, max = 120) =>
