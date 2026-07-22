@@ -14,6 +14,7 @@ import {
   IndianRupee,
   ChevronLeft,
   ChevronRight,
+  UserRound,
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
 import { ThemeToggle } from "@/components/admin/ThemeToggle";
@@ -32,6 +33,7 @@ const navItems: NavItem[] = [
   { href: "/vendor/pricelists", label: "Pricelists", icon: Tags },
   { href: "/vendor/operations", label: "Operations", icon: Truck },
   { href: "/vendor/quotations", label: "Quotations", icon: IndianRupee },
+  { href: "/vendor/profile", label: "Profile Settings", icon: UserRound },
 ];
 
 function NavLink({ item, onNavigate, collapsed }: { item: NavItem; onNavigate?: () => void; collapsed?: boolean }) {

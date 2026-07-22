@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Bell, Search, Sun, Moon } from "lucide-react";
 import { VendorSidebar } from "@/components/vendor/VendorSidebar";
 import { useTheme } from "@/components/admin/ThemeProvider";
@@ -49,7 +50,7 @@ export default function VendorLayout({
             )}
             <button type="button" aria-label="View notifications" className="relative rounded-xl border border-border bg-surface-raised p-2.5 text-chalk transition hover:border-accent/40 hover:text-text"><Bell size={18} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent" /></button>
             {user && (
-              <div className="flex items-center gap-3 border-l border-border pl-4">
+              <Link href="/vendor/profile" className="flex items-center gap-3 border-l border-border pl-4 hover:opacity-80 transition-opacity">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-black">
                   {`${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "VE"}
                 </div>
@@ -57,7 +58,7 @@ export default function VendorLayout({
                   <p className="text-sm font-semibold text-text">{user.companyName ?? user.fullName}</p>
                   <p className="text-xs text-chalk">Vendor Partner</p>
                 </div>
-              </div>
+              </Link>
             )}
           </div>
         </div>
