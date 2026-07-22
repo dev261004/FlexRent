@@ -12,6 +12,8 @@ import {
   Menu,
   X,
   IndianRupee,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
 import { ThemeToggle } from "@/components/admin/ThemeToggle";
@@ -32,7 +34,7 @@ const navItems: NavItem[] = [
   { href: "/vendor/quotations", label: "Quotations", icon: IndianRupee },
 ];
 
-function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+function NavLink({ item, onNavigate, collapsed }: { item: NavItem; onNavigate?: () => void; collapsed?: boolean }) {
   const pathname = usePathname();
   const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
   const Icon = item.icon;
@@ -41,7 +43,9 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void 
     <Link
       href={item.href}
       onClick={onNavigate}
-      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ${
+      className={`group flex items-center rounded-xl p-2.5 text-sm font-medium transition-all duration-300 ${
+        collapsed ? "justify-center px-0" : "gap-3 px-3"
+      } ${
         active
           ? "bg-accent text-black shadow-md shadow-accent/20"
           : "text-chalk hover:bg-black/5 hover:text-text dark:hover:bg-white/5"
@@ -50,12 +54,22 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void 
       <div className={`transition-transform duration-300 ${!active && "group-hover:scale-110"}`}>
         <Icon size={18} />
       </div>
-      <span className={`truncate transition-transform duration-300 ${!active && "group-hover:translate-x-1"}`}>{item.label}</span>
+      {!collapsed && (
+        <span className={`truncate transition-transform duration-300 ${!active && "group-hover:translate-x-1"}`}>{item.label}</span>
+      )}
     </Link>
   );
 }
 
-function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarPanel({
+  onNavigate,
+  collapsed,
+  setCollapsed,
+}: {
+  onNavigate?: () => void;
+  collapsed?: boolean;
+  setCollapsed?: (val: boolean) => void;
+}) {
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -66,21 +80,24 @@ function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col bg-surface-raised shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-none">
-      <div className="border-b border-border/50 px-5 py-6">
-        <Link href="/vendor/dashboard" onClick={onNavigate} className="block group">
-          <p className="font-display text-2xl font-bold bg-gradient-to-br from-text to-chalk bg-clip-text text-transparent">flexrent</p>
-          <p className="mt-1.5 text-xs font-bold uppercase tracking-[0.2em] text-accent">
-            Vendor
-          </p>
-        </Link>
-        {user && (
-          <p className="mt-3 text-xs leading-relaxed text-chalk">{user.companyName ?? user.fullName}</p>
+      <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} border-b border-border/50 px-5 py-6 h-[76px]`}>
+        {!collapsed && (
+          <Link href="/vendor/dashboard" onClick={onNavigate} className="block group">
+            <p className="font-display text-2xl font-bold bg-gradient-to-br from-text to-chalk bg-clip-text text-transparent">flexrent</p>
+          </Link>
         )}
+        <button
+          onClick={() => setCollapsed?.(!collapsed)}
+          className="hidden md:block rounded-lg p-1.5 text-chalk hover:bg-black/5 hover:text-text dark:hover:bg-white/5 transition-colors"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {navItems.map((item) => (
-          <NavLink key={item.href} item={item} onNavigate={onNavigate} />
+          <NavLink key={item.href} item={item} onNavigate={onNavigate} collapsed={collapsed} />
         ))}
       </nav>
 
@@ -88,12 +105,16 @@ function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
         <button
           type="button"
           onClick={handleLogout}
-          className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-chalk transition-all duration-300 hover:bg-danger/10 hover:text-danger dark:hover:bg-danger/20"
+          className={`group flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-chalk transition-all duration-300 hover:bg-danger/10 hover:text-danger dark:hover:bg-danger/20 ${
+            collapsed ? "justify-center px-0" : "gap-3 px-3"
+          }`}
         >
           <div className="transition-transform duration-300 group-hover:scale-110">
             <LogOut size={18} />
           </div>
-          <span className="transition-transform duration-300 group-hover:translate-x-1">Sign out</span>
+          {!collapsed && (
+            <span className="transition-transform duration-300 group-hover:translate-x-1">Sign out</span>
+          )}
         </button>
       </div>
 
@@ -101,7 +122,12 @@ function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function VendorSidebar() {
+interface VendorSidebarProps {
+  collapsed?: boolean;
+  setCollapsed?: (val: boolean) => void;
+}
+
+export function VendorSidebar({ collapsed = false, setCollapsed }: VendorSidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -137,8 +163,8 @@ export function VendorSidebar() {
         </div>
       )}
 
-      <aside className="fixed left-0 top-0 z-20 hidden h-screen w-[280px] border-r border-border/50 md:block">
-        <SidebarPanel />
+      <aside className={`fixed left-0 top-0 z-20 hidden h-screen border-r border-border/50 md:block transition-all duration-300 ${collapsed ? "w-[76px]" : "w-[280px]"}`}>
+        <SidebarPanel collapsed={collapsed} setCollapsed={setCollapsed} />
       </aside>
     </>
   );

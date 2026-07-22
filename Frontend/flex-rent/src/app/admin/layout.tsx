@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Bell, Search, Sun, Moon } from "lucide-react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { useTheme } from "@/components/admin/ThemeProvider";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminLayout({
   children,
@@ -10,11 +12,25 @@ export default function AdminLayout({
   children: React.ReactNode;
 }>) {
   const { theme, toggleTheme, ready } = useTheme();
+  const { user } = useAuth();
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("flexrent_admin_sidebar_collapsed");
+    if (saved) {
+      setCollapsed(JSON.parse(saved));
+    }
+  }, []);
+
+  const handleSetCollapsed = (val: boolean) => {
+    setCollapsed(val);
+    localStorage.setItem("flexrent_admin_sidebar_collapsed", JSON.stringify(val));
+  };
 
   return (
     <div className="min-h-screen bg-surface">
-      <AdminSidebar />
-      <main className="min-h-screen pt-14 md:pl-[280px] md:pt-0">
+      <AdminSidebar collapsed={collapsed} setCollapsed={handleSetCollapsed} />
+      <main className={`min-h-screen pt-14 transition-all duration-300 md:pt-0 ${collapsed ? "md:pl-[76px]" : "md:pl-[280px]"}`}>
         <div className="sticky top-0 z-10 hidden h-[76px] items-center justify-between border-b border-border/80 bg-surface/90 px-8 backdrop-blur md:flex">
           <div className="relative w-full max-w-sm">
             <Search
@@ -46,15 +62,17 @@ export default function AdminLayout({
               <Bell size={18} />
               <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent" />
             </button>
-            <div className="flex items-center gap-3 border-l border-border pl-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-black">
-                AR
+            {user && (
+              <div className="flex items-center gap-3 border-l border-border pl-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-black">
+                  {`${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "AD"}
+                </div>
+                <div className="leading-tight">
+                  <p className="text-sm font-semibold text-text">{user.fullName}</p>
+                  <p className="text-xs text-chalk">Admin</p>
+                </div>
               </div>
-              <div className="leading-tight">
-                <p className="text-sm font-semibold text-text">Admin user</p>
-                <p className="text-xs text-chalk">Workspace owner</p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">

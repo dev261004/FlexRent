@@ -80,16 +80,16 @@ export default function OrdersPage() {
         {loading ? (
           <div className="p-10 text-center text-chalk">Loading bookings...</div>
         ) : orders.length === 0 ? (
-          <div className="p-12 text-center"><PackageSearch className="mx-auto text-accent" size={32}/><p className="mt-4 font-semibold text-text">Your booking history is empty.</p><Link className="mt-3 inline-block text-sm font-bold text-accent" href="/dashboard/catalog">Browse available rentals</Link></div>
+          <div className="p-12 text-center"><PackageSearch className="mx-auto text-accent" size={32} /><p className="mt-4 font-semibold text-text">Your booking history is empty.</p><Link className="mt-3 inline-block text-sm font-bold text-accent" href="/dashboard/catalog">Browse available rentals</Link></div>
         ) : (
           <div className="divide-y divide-border">
             {orders.map((order) => (
               <div key={order.id} className="flex flex-col gap-4 p-5 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex gap-3">
-                  <div className="rounded-xl bg-accent/15 p-3 text-accent"><CalendarRange size={20}/></div>
+                  <div className="rounded-xl bg-accent/15 p-3 text-accent"><CalendarRange size={20} /></div>
                   <div>
                     <p className="font-display font-bold text-text">{order.items.map((item) => item.product.name).join(", ")}</p>
-                    <p className="mt-1 text-sm text-chalk">{order.rentalNumber} · {new Date(order.rentalStart).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})} - {new Date(order.rentalEnd).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}</p>
+                    <p className="mt-1 text-sm text-chalk">{order.rentalNumber} · {new Date(order.rentalStart).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} - {new Date(order.rentalEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
                     <p className="mt-1 text-xs text-chalk">{order.vendor?.companyName ?? order.vendor?.fullName ?? "Rental partner"}</p>
                   </div>
                 </div>
@@ -101,9 +101,9 @@ export default function OrdersPage() {
                   </div>
                   <div className="flex flex-wrap gap-2 xl:justify-end">
                     {order.status === "CONFIRMED" && order.paymentStatus !== "PAID" && (
-                      <button disabled={busy === order.id} onClick={() => void openQr(order)} className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black"><QrCode size={14}/>Pay UPI</button>
+                      <button disabled={busy === order.id} onClick={() => void openQr(order)} className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black"><QrCode size={14} />Pay UPI</button>
                     )}
-                    <button disabled={busy === order.id} onClick={() => void openTimeline(order.id)} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text"><RefreshCw size={14}/>Timeline</button>
+                    <button disabled={busy === order.id} onClick={() => void openTimeline(order.id)} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text"><RefreshCw size={14} />Timeline</button>
                   </div>
                 </div>
               </div>
@@ -120,10 +120,10 @@ export default function OrdersPage() {
             <div className="mt-4 rounded-xl bg-surface p-4 text-sm">
               <p className="font-bold text-text">{money(qr.data.amount)} to {qr.data.vendorName}</p>
               <p className="mt-1 text-chalk">{qr.data.upiId}</p>
-              <button type="button" onClick={() => navigator.clipboard.writeText(qr.data.upiLink)} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text"><Clipboard size={14}/>Copy UPI link</button>
+              <button type="button" onClick={() => navigator.clipboard.writeText(qr.data.upiLink)} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text"><Clipboard size={14} />Copy UPI link</button>
             </div>
-            <label className="mt-4 block text-sm font-semibold text-text">UTR / Transaction ID<input value={utr} onChange={(event) => setUtr(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"/></label>
-            <label className="mt-4 block text-sm font-semibold text-text">Payment proof URL<input value={proof} onChange={(event) => setProof(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"/></label>
+            <label className="mt-4 block text-sm font-semibold text-text">UTR / Transaction ID<input value={utr} onChange={(event) => setUtr(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>
+            <label className="mt-4 block text-sm font-semibold text-text">Payment proof URL<input value={proof} onChange={(event) => setProof(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>
             <div className="mt-5 flex gap-2">
               <button disabled={utr.length < 8 || busy === qr.orderId} onClick={() => void submitPayment(qr.orderId)} className="rounded-xl bg-accent px-4 py-2.5 text-sm font-bold text-black disabled:opacity-50">Submit payment</button>
               <button onClick={() => setQr(null)} className="rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-text">Close</button>
