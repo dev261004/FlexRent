@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { updateProfile } from "@/features/customer/api";
 import { Panel } from "@/components/admin/Panel";
 export default function ProfilePage() {
-  const { user, login, token } = useAuth();
+  const { user, login, token, isLoading } = useAuth();
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
   const [lastName, setLastName] = useState(user?.lastName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
@@ -20,6 +20,18 @@ export default function ProfilePage() {
       setAddress(JSON.parse(localStorage.getItem("flexrent_preferences") ?? "{}").address ?? "");
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    setFirstName(user.firstName ?? "");
+    setLastName(user.lastName ?? "");
+    setPhone(user.phone ?? "");
+    setImage(user.profileImage ?? "");
+  }, [user]);
+
+  if (isLoading) {
+    return <div className="text-sm text-chalk">Loading profile...</div>;
+  }
 
   if (!user) return null;
 

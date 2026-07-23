@@ -1,7 +1,7 @@
 "use client";
 
 import { Camera, Check, Briefcase, UserRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateProfile } from "@/features/customer/api";
 import { Panel } from "@/components/admin/Panel";
@@ -9,7 +9,7 @@ import { Combobox } from "@/components/ui/Combobox";
 import { PRODUCT_CATEGORIES } from "@/features/auth/data/productCategories";
 
 export default function VendorProfilePage() {
-  const { user, login, token } = useAuth();
+  const { user, login, token, isLoading } = useAuth();
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
   const [lastName, setLastName] = useState(user?.lastName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
@@ -20,6 +20,21 @@ export default function VendorProfilePage() {
 
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    setFirstName(user.firstName ?? "");
+    setLastName(user.lastName ?? "");
+    setPhone(user.phone ?? "");
+    setImage(user.profileImage ?? "");
+    setCompanyName(user.companyName ?? "");
+    setGstNumber(user.gstNumber ?? "");
+    setCategory(user.productCategory ?? "");
+  }, [user]);
+
+  if (isLoading) {
+    return <div className="text-sm text-chalk">Loading profile...</div>;
+  }
 
   if (!user) return null;
 

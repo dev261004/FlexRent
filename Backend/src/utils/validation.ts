@@ -17,6 +17,12 @@ const optionalText = (max = 120) =>
     z.string().trim().min(1).max(max).optional()
   );
 
+const optionalNullableText = (max = 120) =>
+  z.preprocess(
+    emptyStringToUndefined,
+    z.string().trim().min(1).max(max).nullable().optional()
+  );
+
 const requiredText = (fieldName: string, max = 120) =>
   z
     .string({ required_error: `${fieldName} is required` })
@@ -118,7 +124,7 @@ export const updateProfileSchema = z.object({
   firstName: optionalText(80),
   lastName: optionalText(80),
   phone: optionalText(30),
-  profileImage: optionalText(500),
+  profileImage: optionalNullableText(500),
   companyName: optionalText(120),
   productCategory: optionalText(80),
   gstNumber: optionalText(32),
