@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarRange, Clipboard, PackageSearch, QrCode, RefreshCw } from "lucide-react";
+import { CalendarRange, Clipboard, ExternalLink, PackageSearch, QrCode, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getOrders, type RentalOrder } from "@/features/customer/api";
 import { getPaymentQR, getTimeline, submitUpiPayment, type PaymentQR } from "@/features/rentals/api";
@@ -140,26 +140,46 @@ export default function OrdersPage() {
       </Panel>
 
       {qr && (
-        <div className="fixed inset-0 z-[70] overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
-          <div className="mx-auto my-8 max-w-lg rounded-2xl border border-border bg-surface-raised p-5 shadow-2xl">
-            <h2 className="font-display text-xl font-bold text-text">UPI payment</h2>
-            <p className="mt-2 text-sm text-chalk">Scan the QR with any UPI app, then enter the UTR / transaction ID below.</p>
-            <div className="mt-4 grid gap-4 rounded-xl bg-surface p-4 text-sm sm:grid-cols-[auto_1fr] sm:items-center">
-              <div className="rounded-xl bg-white p-3">
-                <img src={getQrCodeUrl(qr.data.upiLink)} alt="UPI payment QR code" className="h-[220px] w-[220px]" />
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
+          <div className="mx-auto my-8 w-full max-w-md rounded-2xl border border-border bg-surface-raised p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xl font-bold text-text">UPI Payment</h2>
+              <button onClick={() => setQr(null)} className="text-chalk hover:text-text">
+                <span className="sr-only">Close</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="mt-6 flex flex-col items-center rounded-xl bg-surface p-6 border border-border/50 text-center">
+              <div className="rounded-xl bg-white p-2">
+                <img src={getQrCodeUrl(qr.data.upiLink)} alt="UPI QR code" className="h-[200px] w-[200px]" />
               </div>
-              <div>
-                <p className="font-bold text-text">{money(qr.data.amount)} to {getPayeeName(qr.data.vendorName)}</p>
-                <p className="mt-1 text-chalk">{qr.data.upiId}</p>
-                <a href={qr.data.upiLink} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black">Open UPI app</a>
-                <button type="button" onClick={() => navigator.clipboard.writeText(qr.data.upiLink)} className="ml-2 mt-3 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text"><Clipboard size={14} />Copy link</button>
+              <p className="mt-4 font-display text-2xl font-bold text-text">{money(qr.data.amount)}</p>
+              <p className="text-sm font-medium text-chalk">to {getPayeeName(qr.data.vendorName)}</p>
+              <p className="mt-1 text-xs text-chalk/70">{qr.data.upiId}</p>
+
+              <div className="mt-5 flex w-full gap-2">
+                <a href={qr.data.upiLink} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-3 py-2.5 text-sm font-bold text-black transition hover:bg-accent/90">
+                  <ExternalLink size={16} /> Open App
+                </a>
+                <button type="button" onClick={() => navigator.clipboard.writeText(qr.data.upiLink)} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface-raised px-3 py-2.5 text-sm font-bold text-text transition hover:bg-surface">
+                  <Clipboard size={16} /> Copy UPI ID
+                </button>
               </div>
             </div>
-            <label className="mt-4 block text-sm font-semibold text-text">UTR / Transaction ID<input value={utr} onChange={(event) => setUtr(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>
-            <label className="mt-4 block text-sm font-semibold text-text">Payment proof URL<input value={proof} onChange={(event) => setProof(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>
-            <div className="mt-5 flex gap-2">
-              <button disabled={utr.length < 8 || busy === qr.orderId} onClick={() => void submitPayment(qr.orderId)} className="rounded-xl bg-accent px-4 py-2.5 text-sm font-bold text-black disabled:opacity-50">Submit payment</button>
-              <button onClick={() => setQr(null)} className="rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-text">Close</button>
+
+            <div className="mt-6 space-y-4">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-wider text-chalk">UTR / Transaction ID *</span>
+                <input value={utr} onChange={(event) => setUtr(event.target.value)} placeholder="Enter 12-digit UTR" className="mt-1.5 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text outline-none transition focus:border-accent" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-wider text-chalk">Payment Proof URL (Optional)</span>
+                <input value={proof} onChange={(event) => setProof(event.target.value)} placeholder="https://..." className="mt-1.5 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text outline-none transition focus:border-accent" />
+              </label>
+              <button disabled={utr.length < 8 || busy === qr.orderId} onClick={() => void submitPayment(qr.orderId)} className="mt-2 w-full rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-black transition hover:bg-accent/90 disabled:opacity-50">
+                Verify Payment
+              </button>
             </div>
           </div>
         </div>
