@@ -11,13 +11,19 @@ export default function ProfilePage() {
   const [lastName, setLastName] = useState(user?.lastName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [image, setImage] = useState(user?.profileImage ?? "");
-  const [address, setAddress] = useState("");
+  const [addresses, setAddresses] = useState<string[]>([]);
+  const [newAddress, setNewAddress] = useState("");
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
     try {
-      setAddress(JSON.parse(localStorage.getItem("flexrent_preferences") ?? "{}").address ?? "");
+      const prefs = JSON.parse(localStorage.getItem("flexrent_preferences") ?? "{}");
+      if (prefs.addresses && Array.isArray(prefs.addresses)) {
+        setAddresses(prefs.addresses);
+      } else if (prefs.address) {
+        setAddresses([prefs.address]);
+      }
     } catch {}
   }, []);
 
@@ -61,7 +67,7 @@ export default function ProfilePage() {
         });
       }
       const p = JSON.parse(localStorage.getItem("flexrent_preferences") ?? "{}");
-      localStorage.setItem("flexrent_preferences", JSON.stringify({ ...p, address }));
+      localStorage.setItem("flexrent_preferences", JSON.stringify({ ...p, addresses }));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } finally {
@@ -129,16 +135,47 @@ export default function ProfilePage() {
           <Panel className="p-6">
             <div className="flex items-center gap-2">
               <MapPin className="text-accent" size={19} />
-              <h2 className="font-display text-lg font-bold text-text">Default delivery address</h2>
+              <h2 className="font-display text-lg font-bold text-text">Delivery addresses</h2>
             </div>
-            <textarea
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              rows={3}
-              placeholder="House / building, street, area, city, PIN code"
-              className="mt-5 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-text"
-            />
-            <p className="mt-2 text-xs text-chalk">Used to prefill delivery bookings on this device.</p>
+            
+            <div className="mt-5 space-y-3">
+              {addresses.map((addr, idx) => (
+                <div key={idx} className="flex items-start justify-between gap-4 rounded-xl border border-border bg-surface px-3 py-3">
+                  <p className="text-sm text-text whitespace-pre-wrap">{addr}</p>
+                  <button 
+                    type="button"
+                    onClick={() => setAddresses(addresses.filter((_, i) => i !== idx))}
+                    className="text-xs font-bold text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 border-t border-border pt-4">
+              <textarea
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                rows={2}
+                placeholder="Add a new address (House, street, area, city, PIN code)"
+                className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-text"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newAddress.trim()) {
+                    setAddresses([...addresses, newAddress.trim()]);
+                    setNewAddress("");
+                  }
+                }}
+                disabled={!newAddress.trim()}
+                className="mt-2 rounded-xl bg-accent/20 px-3 py-1.5 text-xs font-bold text-accent disabled:opacity-50"
+              >
+                Add Address
+              </button>
+            </div>
+            <p className="mt-4 text-xs text-chalk">Used to prefill delivery bookings on this device.</p>
           </Panel>
           <button
             disabled={pending || !allFilled}

@@ -19,7 +19,149 @@ export default function CatalogPage() {
 }
 
 function BookingModal({ product, customerId, onClose }: { product: Product; customerId: string; onClose: () => void }) {
-  const [start, setStart] = useState(day(1)); const [end, setEnd] = useState(day(2)); const [quantity, setQuantity] = useState(1); const [fulfilment, setFulfilment] = useState<"delivery" | "pickup">("delivery"); const [address, setAddress] = useState(""); const [payment, setPayment] = useState("UPI"); const [pending, setPending] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState("");
-  const submit = async (e: React.FormEvent) => { e.preventDefault(); if (!product.vendor) return; if (fulfilment === "delivery" && !address.trim()) return setError("Enter a delivery address or choose store collection."); setPending(true); setError(""); try { const saved = JSON.parse(localStorage.getItem("flexrent_preferences") ?? "{}"); localStorage.setItem("flexrent_preferences", JSON.stringify({ ...saved, address, fulfilment, payment })); const order = await createBooking({ customerId, vendorId: product.vendor.id, productId: product.id, rentalStart: new Date(start).toISOString(), rentalEnd: new Date(end).toISOString(), quantity, notes: `${fulfilment === "delivery" ? `Delivery address: ${address}` : "Store collection selected"}. Payment preference: ${payment}.` }); setSuccess(order.rentalNumber); } catch (err: unknown) { setError(err instanceof Error ? "Could not place your booking. Check dates and availability, then try again." : "Could not place your booking."); } finally { setPending(false); } };
-  return <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"><div className="mx-auto my-5 max-w-2xl rounded-3xl border border-border bg-surface-raised shadow-2xl"><div className="flex items-start justify-between border-b border-border p-6"><div><p className="text-xs font-bold uppercase tracking-wide text-accent">Complete your booking</p><h2 className="mt-1 font-display text-2xl font-bold text-text">{product.name}</h2></div><button onClick={onClose} aria-label="Close booking" className="rounded-lg p-2 text-chalk hover:bg-black/5"><X/></button></div>{success ? <div className="p-8 text-center"><CheckCircle2 className="mx-auto text-green-500" size={44}/><h3 className="mt-4 font-display text-2xl font-bold text-text">Booking request sent</h3><p className="mt-2 text-sm text-chalk">Your reference is <strong className="text-text">{success}</strong>. You can track it from My bookings.</p><button onClick={onClose} className="mt-6 rounded-xl bg-accent px-5 py-3 text-sm font-bold text-[#1a1817]">Done</button></div> : <form onSubmit={submit} className="space-y-6 p-6"><div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold text-text">Start date<input required min={day(1)} value={start} onChange={e=>setStart(e.target.value)} type="date" className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"/></label><label className="text-sm font-semibold text-text">Return date<input required min={start} value={end} onChange={e=>setEnd(e.target.value)} type="date" className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"/></label></div><label className="text-sm font-semibold text-text">Quantity<select value={quantity} onChange={e=>setQuantity(Number(e.target.value))} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text">{Array.from({length: Math.min(product.quantityOnHand, 10)}, (_,i)=><option key={i} value={i+1}>{i+1}</option>)}</select></label><div><p className="text-sm font-semibold text-text">How would you like to receive it?</p><div className="mt-2 grid gap-3 sm:grid-cols-2"><button type="button" onClick={()=>setFulfilment("delivery")} className={`rounded-xl border p-3 text-left text-sm font-semibold ${fulfilment === "delivery" ? "border-accent bg-accent/10 text-text" : "border-border text-chalk"}`}><MapPin size={17} className="mb-1 text-accent"/>Delivery</button><button type="button" onClick={()=>setFulfilment("pickup")} className={`rounded-xl border p-3 text-left text-sm font-semibold ${fulfilment === "pickup" ? "border-accent bg-accent/10 text-text" : "border-border text-chalk"}`}><CalendarDays size={17} className="mb-1 text-accent"/>Collect from store</button></div></div>{fulfilment === "delivery" && <label className="block text-sm font-semibold text-text">Delivery address<textarea value={address} onChange={e=>setAddress(e.target.value)} rows={2} placeholder="House, street, area, city and PIN code" className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"/></label>}<label className="block text-sm font-semibold text-text">Payment preference<select value={payment} onChange={e=>setPayment(e.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"><option>UPI</option><option>Card</option><option>Cash at pickup</option></select><span className="mt-1 block text-xs font-normal text-chalk">No card details are stored here. Final payment is confirmed by the vendor.</span></label>{error && <p className="text-sm text-red-500">{error}</p>}<button disabled={pending} className="w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#1a1817] disabled:opacity-60">{pending ? "Sending booking…" : "Request rental"}</button></form>}</div></div>;
+  const [start, setStart] = useState(day(1));
+  const [end, setEnd] = useState(day(2));
+  const [quantity, setQuantity] = useState(1);
+  const [fulfilment, setFulfilment] = useState<"delivery" | "pickup">("delivery");
+  const [address, setAddress] = useState("");
+  const [addresses, setAddresses] = useState<string[]>([]);
+  const [isNewAddress, setIsNewAddress] = useState(false);
+  const [payment, setPayment] = useState("UPI");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    try {
+      const prefs = JSON.parse(localStorage.getItem("flexrent_preferences") ?? "{}");
+      if (prefs.addresses && Array.isArray(prefs.addresses) && prefs.addresses.length > 0) {
+        setAddresses(prefs.addresses);
+        setAddress(prefs.addresses[0]);
+      } else if (prefs.address) {
+        setAddresses([prefs.address]);
+        setAddress(prefs.address);
+      } else {
+        setIsNewAddress(true);
+      }
+      if (prefs.payment) setPayment(prefs.payment);
+      if (prefs.fulfilment) setFulfilment(prefs.fulfilment);
+    } catch {}
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product.vendor) return;
+    if (fulfilment === "delivery" && !address.trim()) return setError("Enter a delivery address or choose store collection.");
+    
+    setPending(true);
+    setError("");
+    
+    try {
+      const prefs = JSON.parse(localStorage.getItem("flexrent_preferences") ?? "{}");
+      let newAddresses = [...addresses];
+      if (fulfilment === "delivery" && isNewAddress && address.trim()) {
+        if (!newAddresses.includes(address.trim())) {
+          newAddresses.push(address.trim());
+        }
+      }
+      
+      localStorage.setItem("flexrent_preferences", JSON.stringify({
+        ...prefs,
+        addresses: newAddresses,
+        fulfilment,
+        payment
+      }));
+
+      const order = await createBooking({
+        customerId,
+        vendorId: product.vendor.id,
+        productId: product.id,
+        rentalStart: new Date(start).toISOString(),
+        rentalEnd: new Date(end).toISOString(),
+        quantity,
+        notes: `${fulfilment === "delivery" ? `Delivery address: ${address.trim()}` : "Store collection selected"}. Payment preference: ${payment}.`
+      });
+      setSuccess(order.rentalNumber);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? "Could not place your booking. Check dates and availability, then try again." : "Could not place your booking.");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
+      <div className="mx-auto my-5 max-w-2xl rounded-3xl border border-border bg-surface-raised shadow-2xl">
+        <div className="flex items-start justify-between border-b border-border p-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-accent">Complete your booking</p>
+            <h2 className="mt-1 font-display text-2xl font-bold text-text">{product.name}</h2>
+          </div>
+          <button onClick={onClose} aria-label="Close booking" className="rounded-lg p-2 text-chalk hover:bg-black/5"><X/></button>
+        </div>
+        {success ? (
+          <div className="p-8 text-center">
+            <CheckCircle2 className="mx-auto text-green-500" size={44}/>
+            <h3 className="mt-4 font-display text-2xl font-bold text-text">Booking request sent</h3>
+            <p className="mt-2 text-sm text-chalk">Your reference is <strong className="text-text">{success}</strong>. You can track it from My bookings.</p>
+            <button onClick={onClose} className="mt-6 rounded-xl bg-accent px-5 py-3 text-sm font-bold text-[#1a1817]">Done</button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-6 p-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-semibold text-text">Start date<input required min={day(1)} value={start} onChange={e=>setStart(e.target.value)} type="date" className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"/></label>
+              <label className="text-sm font-semibold text-text">Return date<input required min={start} value={end} onChange={e=>setEnd(e.target.value)} type="date" className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"/></label>
+            </div>
+            <label className="text-sm font-semibold text-text">Quantity
+              <select value={quantity} onChange={e=>setQuantity(Number(e.target.value))} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text">
+                {Array.from({length: Math.min(product.quantityOnHand, 10)}, (_,i)=><option key={i} value={i+1}>{i+1}</option>)}
+              </select>
+            </label>
+            <div>
+              <p className="text-sm font-semibold text-text">How would you like to receive it?</p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <button type="button" onClick={()=>setFulfilment("delivery")} className={`rounded-xl border p-3 text-left text-sm font-semibold ${fulfilment === "delivery" ? "border-accent bg-accent/10 text-text" : "border-border text-chalk"}`}><MapPin size={17} className="mb-1 text-accent"/>Delivery</button>
+                <button type="button" onClick={()=>setFulfilment("pickup")} className={`rounded-xl border p-3 text-left text-sm font-semibold ${fulfilment === "pickup" ? "border-accent bg-accent/10 text-text" : "border-border text-chalk"}`}><CalendarDays size={17} className="mb-1 text-accent"/>Collect from store</button>
+              </div>
+            </div>
+            {fulfilment === "delivery" && (
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-text">Delivery address</label>
+                
+                {addresses.length > 0 && (
+                  <select 
+                    className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-text"
+                    value={isNewAddress ? "new" : address}
+                    onChange={(e) => {
+                      if (e.target.value === "new") {
+                        setIsNewAddress(true);
+                        setAddress("");
+                      } else {
+                        setIsNewAddress(false);
+                        setAddress(e.target.value);
+                      }
+                    }}
+                  >
+                    {addresses.map((addr, idx) => (
+                      <option key={idx} value={addr}>
+                        {addr}
+                      </option>
+                    ))}
+                    <option value="new">Use a different address</option>
+                  </select>
+                )}
+                
+                {(isNewAddress || addresses.length === 0) && (
+                  <textarea value={address} onChange={e=>setAddress(e.target.value)} rows={2} placeholder="House, street, area, city and PIN code" className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" />
+                )}
+              </div>
+            )}
+            <label className="block text-sm font-semibold text-text">Payment preference<select value={payment} onChange={e=>setPayment(e.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"><option>UPI</option><option>Card</option><option>Cash at pickup</option></select><span className="mt-1 block text-xs font-normal text-chalk">No card details are stored here. Final payment is confirmed by the vendor.</span></label>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            <button disabled={pending} className="w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#1a1817] disabled:opacity-60">{pending ? "Sending booking…" : "Request rental"}</button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
 }
