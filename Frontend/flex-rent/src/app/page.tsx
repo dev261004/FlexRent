@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Footer } from "@/components/ui/Footer";
+import { HomeNav } from "@/components/home/HomeNav";
 import {
   Zap,
   Wrench,
@@ -48,20 +49,7 @@ export default function Home() {
         >
           flexrent
         </Link>
-        <nav className="flex items-center gap-4">
-          <Link
-            href="/login"
-            className="text-sm text-chalk transition-colors hover:text-text"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/signup"
-            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-yellow-400"
-          >
-            Get it
-          </Link>
-        </nav>
+        <HomeNav />
       </header>
       <section className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center px-6 text-center">
         <h1 className="max-w-4xl font-display text-6xl font-bold leading-tight text-text">
