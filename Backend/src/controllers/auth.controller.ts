@@ -440,6 +440,7 @@ export const updateProfile = asyncHandler(
             companyName: payload.companyName,
             productCategory: payload.productCategory,
             gstNumber: payload.gstNumber,
+            upiId: payload.upiId,
           }
         : {};
 

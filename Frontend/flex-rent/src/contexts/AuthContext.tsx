@@ -22,6 +22,7 @@ export interface User {
   companyName?: string | null;
   productCategory?: string | null;
   gstNumber?: string | null;
+  upiId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -106,6 +106,8 @@ router.post("/register", register);
  *                 type: string
  *               gstNumber:
  *                 type: string
+ *               upiId:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Vendor registered successfully

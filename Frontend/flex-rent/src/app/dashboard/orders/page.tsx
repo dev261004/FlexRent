@@ -10,6 +10,33 @@ import { Panel } from "@/components/admin/Panel";
 const money = (value: string | number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value));
 
+const normalizeStatus = (value?: string | null) => (value ?? "").trim().toUpperCase();
+
+const canPayOrder = (order: RentalOrder) => {
+  const status = normalizeStatus(order.status);
+  const paymentStatus = normalizeStatus(order.paymentStatus);
+  const isAccepted = status === "CONFIRMED" || status === "APPROVED" || Boolean(order.approvedAt);
+  const isPaymentOpen = !["PAID", "PAYMENT_SUBMITTED"].includes(paymentStatus);
+
+  return isAccepted && isPaymentOpen;
+};
+
+const getVendorName = (order: RentalOrder) => {
+  const vendorName = order.vendor?.companyName ?? order.vendor?.fullName ?? "";
+
+  return vendorName.trim().toLowerCase() === "string" || !vendorName.trim()
+    ? "Rental partner"
+    : vendorName;
+};
+
+const getPayeeName = (vendorName: string) =>
+  vendorName.trim().toLowerCase() === "string" || !vendorName.trim()
+    ? "Rental partner"
+    : vendorName;
+
+const getQrCodeUrl = (upiLink: string) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(upiLink)}`;
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<RentalOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,8 +64,8 @@ export default function OrdersPage() {
       setQr({ orderId: order.id, data: await getPaymentQR(order.id) });
       setUtr("");
       setProof("");
-    } catch {
-      setError("Payment QR is available only after vendor acceptance and before payment completion.");
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? "Payment QR is available only after vendor acceptance and before payment completion.");
     } finally {
       setBusy(null);
     }
@@ -86,11 +113,11 @@ export default function OrdersPage() {
             {orders.map((order) => (
               <div key={order.id} className="flex flex-col gap-4 p-5 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex gap-3">
-                  <div className="rounded-xl bg-accent/15 p-3 text-accent"><CalendarRange size={20} /></div>
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent"><CalendarRange size={22} /></div>
                   <div>
                     <p className="font-display font-bold text-text">{order.items.map((item) => item.product.name).join(", ")}</p>
                     <p className="mt-1 text-sm text-chalk">{order.rentalNumber} · {new Date(order.rentalStart).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} - {new Date(order.rentalEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
-                    <p className="mt-1 text-xs text-chalk">{order.vendor?.companyName ?? order.vendor?.fullName ?? "Rental partner"}</p>
+                    <p className="mt-1 text-xs text-chalk">{getVendorName(order)}</p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 xl:items-end">
@@ -100,7 +127,7 @@ export default function OrdersPage() {
                     <span className="rounded-full bg-black/5 px-2 py-1 text-[11px] font-bold text-chalk dark:bg-white/10">{order.paymentStatus.replaceAll("_", " ")}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 xl:justify-end">
-                    {order.status === "CONFIRMED" && order.paymentStatus !== "PAID" && (
+                    {canPayOrder(order) && (
                       <button disabled={busy === order.id} onClick={() => void openQr(order)} className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black"><QrCode size={14} />Pay UPI</button>
                     )}
                     <button disabled={busy === order.id} onClick={() => void openTimeline(order.id)} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text"><RefreshCw size={14} />Timeline</button>
@@ -116,11 +143,17 @@ export default function OrdersPage() {
         <div className="fixed inset-0 z-[70] overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
           <div className="mx-auto my-8 max-w-lg rounded-2xl border border-border bg-surface-raised p-5 shadow-2xl">
             <h2 className="font-display text-xl font-bold text-text">UPI payment</h2>
-            <p className="mt-2 text-sm text-chalk">Use this link to generate a QR in the frontend or open any UPI app.</p>
-            <div className="mt-4 rounded-xl bg-surface p-4 text-sm">
-              <p className="font-bold text-text">{money(qr.data.amount)} to {qr.data.vendorName}</p>
-              <p className="mt-1 text-chalk">{qr.data.upiId}</p>
-              <button type="button" onClick={() => navigator.clipboard.writeText(qr.data.upiLink)} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text"><Clipboard size={14} />Copy UPI link</button>
+            <p className="mt-2 text-sm text-chalk">Scan the QR with any UPI app, then enter the UTR / transaction ID below.</p>
+            <div className="mt-4 grid gap-4 rounded-xl bg-surface p-4 text-sm sm:grid-cols-[auto_1fr] sm:items-center">
+              <div className="rounded-xl bg-white p-3">
+                <img src={getQrCodeUrl(qr.data.upiLink)} alt="UPI payment QR code" className="h-[220px] w-[220px]" />
+              </div>
+              <div>
+                <p className="font-bold text-text">{money(qr.data.amount)} to {getPayeeName(qr.data.vendorName)}</p>
+                <p className="mt-1 text-chalk">{qr.data.upiId}</p>
+                <a href={qr.data.upiLink} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black">Open UPI app</a>
+                <button type="button" onClick={() => navigator.clipboard.writeText(qr.data.upiLink)} className="ml-2 mt-3 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text"><Clipboard size={14} />Copy link</button>
+              </div>
             </div>
             <label className="mt-4 block text-sm font-semibold text-text">UTR / Transaction ID<input value={utr} onChange={(event) => setUtr(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>
             <label className="mt-4 block text-sm font-semibold text-text">Payment proof URL<input value={proof} onChange={(event) => setProof(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>

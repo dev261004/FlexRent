@@ -17,6 +17,7 @@ export default function VendorProfilePage() {
   const [companyName, setCompanyName] = useState(user?.companyName ?? "");
   const [gstNumber, setGstNumber] = useState(user?.gstNumber ?? "");
   const [category, setCategory] = useState(user?.productCategory ?? "");
+  const [upiId, setUpiId] = useState(user?.upiId ?? "");
 
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
@@ -30,6 +31,7 @@ export default function VendorProfilePage() {
     setCompanyName(user.companyName ?? "");
     setGstNumber(user.gstNumber ?? "");
     setCategory(user.productCategory ?? "");
+    setUpiId(user.upiId ?? "");
   }, [user]);
 
   if (isLoading) {
@@ -46,7 +48,8 @@ export default function VendorProfilePage() {
     companyName.trim() &&
     gstNumber.trim() &&
     gstNumber.length === 15 &&
-    category
+    category &&
+    upiId.trim()
   );
 
   const save = async (e: React.FormEvent) => {
@@ -61,6 +64,7 @@ export default function VendorProfilePage() {
         companyName,
         gstNumber,
         productCategory: category,
+        upiId,
         profileImage: image || null,
       });
       if (token) {
@@ -155,6 +159,12 @@ export default function VendorProfilePage() {
                 value={gstNumber}
                 onChange={(val) => setGstNumber(val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15))}
               />
+              <Field
+                label="UPI ID"
+                value={upiId}
+                onChange={(val) => setUpiId(val.trim())}
+                placeholder="vendor@upi"
+              />
               <div className="mt-2">
                 <Combobox
                   label="Product Category"
@@ -192,10 +202,12 @@ function Field({
   label,
   value,
   onChange,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   return (
     <label className="block text-sm font-semibold text-text">
@@ -203,6 +215,7 @@ function Field({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
         className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 font-normal text-text outline-none focus:border-accent"
       />
     </label>

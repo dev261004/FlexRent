@@ -9,6 +9,7 @@ export type Product = {
 
 export type RentalOrder = {
   id: string; rentalNumber: string; status: string; paymentStatus: string;
+  approvedAt?: string | null;
   rentalStart: string; rentalEnd: string; grandTotal: string; subtotal: string;
   securityDepositAmount: string; vendor?: { fullName?: string; companyName?: string | null } | null;
   customer?: { fullName?: string; firstName?: string; lastName?: string | null } | null;

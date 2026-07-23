@@ -17,6 +17,7 @@ export const mapUserToPublicUser = (user: User): PublicUser => {
     companyName: user.companyName,
     productCategory: user.productCategory,
     gstNumber: user.gstNumber,
+    upiId: user.upiId,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };

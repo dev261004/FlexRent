@@ -128,6 +128,7 @@ export const updateProfileSchema = z.object({
   companyName: optionalText(120),
   productCategory: optionalText(80),
   gstNumber: optionalText(32),
+  upiId: optionalText(120),
 });
 
 export const formatZodErrors = (error: ZodError): Record<string, string> => {
