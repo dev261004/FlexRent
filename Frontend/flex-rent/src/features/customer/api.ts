@@ -9,11 +9,16 @@ export type Product = {
 
 export type RentalOrder = {
   id: string; rentalNumber: string; status: string; paymentStatus: string;
-  approvedAt?: string | null;
+  customerId?: string; vendorId?: string; approvedAt?: string | null;
+  actualPickupAt?: string | null; actualReturnAt?: string | null;
+  rejectedAt?: string | null; rejectionReason?: string | null; notes?: string | null;
   rentalStart: string; rentalEnd: string; grandTotal: string; subtotal: string;
-  securityDepositAmount: string; vendor?: { fullName?: string; companyName?: string | null } | null;
-  customer?: { fullName?: string; firstName?: string; lastName?: string | null } | null;
-  items: Array<{ id: string; quantity: number; product: { name: string } }>;
+  securityDepositAmount: string; lateFee?: string;
+  vendor?: { fullName?: string; firstName?: string; lastName?: string | null; companyName?: string | null; email?: string; phone?: string | null; upiId?: string | null } | null;
+  customer?: { fullName?: string; firstName?: string; lastName?: string | null; email?: string; phone?: string | null } | null;
+  items: Array<{ id: string; quantity: number; rentalPrice?: string; deposit?: string; subtotal?: string; product: { name: string; description?: string | null; primaryImage?: { url: string; altText?: string | null } | null; category?: { name: string } | null } }>;
+  payments?: Array<{ id: string; amount: string; method: string; status: string; transactionId?: string | null; paymentProof?: string | null; remarks?: string | null; createdAt?: string; verifiedAt?: string | null }>;
+  paymentSummary?: { totalPaid?: string; outstandingBalance?: string; refundableDeposit?: string };
 };
 
 export async function getProducts(search = "") {
@@ -24,6 +29,11 @@ export async function getProducts(search = "") {
 export async function getOrders() {
   const response = await api.get("/rental-orders", { params: { limit: 100 } });
   return response.data.data as { rentalOrders?: RentalOrder[]; orders?: RentalOrder[] };
+}
+
+export async function getOrder(orderId: string) {
+  const response = await api.get(`/rental-orders/${orderId}`);
+  return response.data.data.rentalOrder as RentalOrder;
 }
 
 export async function markOrderPickedUp(orderId: string) {

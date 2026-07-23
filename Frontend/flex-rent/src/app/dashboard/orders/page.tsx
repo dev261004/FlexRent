@@ -112,14 +112,14 @@ export default function OrdersPage() {
           <div className="divide-y divide-border">
             {orders.map((order) => (
               <div key={order.id} className="flex flex-col gap-4 p-5 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex gap-3">
+                <Link href={`/dashboard/orders/${order.id}`} className="flex gap-3 transition hover:opacity-85">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent"><CalendarRange size={22} /></div>
                   <div>
                     <p className="font-display font-bold text-text">{order.items.map((item) => item.product.name).join(", ")}</p>
                     <p className="mt-1 text-sm text-chalk">{order.rentalNumber} · {new Date(order.rentalStart).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} - {new Date(order.rentalEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
                     <p className="mt-1 text-xs text-chalk">{getVendorName(order)}</p>
                   </div>
-                </div>
+                </Link>
                 <div className="flex flex-col gap-3 xl:items-end">
                   <p className="font-bold text-text">{money(order.grandTotal)}</p>
                   <div className="flex flex-wrap gap-2 xl:justify-end">
