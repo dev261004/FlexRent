@@ -104,6 +104,11 @@ enum SecurityDepositStatus {
   DEDUCTED
 }
 
+enum FulfillmentMethod {
+  HOME_DELIVERY
+  STORE_PICKUP
+}
+
 model User {
   id                   String               @id @default(cuid())
   email                String               @unique
@@ -118,6 +123,9 @@ model User {
   productCategory      String?
   gstNumber            String?              @unique
   upiId                String?
+  supportsStorePickup  Boolean              @default(false)
+  pickupAddresses      Json?
+  storeTimings         Json?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   refreshTokens        RefreshToken[]
@@ -410,6 +418,19 @@ model RentalOrder {
   priceListId           String?
   status                RentalStatus      @default(QUOTATION)
   paymentStatus         PaymentStatus     @default(PENDING)
+  fulfillmentMethod     FulfillmentMethod @default(HOME_DELIVERY)
+  deliveryAddressLine1  String?
+  deliveryAddressLine2  String?
+  deliveryCity          String?
+  deliveryState         String?
+  deliveryPostalCode    String?
+  deliveryCountry       String?
+  pickupAddressLine1    String?
+  pickupAddressLine2    String?
+  pickupCity            String?
+  pickupState           String?
+  pickupPostalCode      String?
+  pickupCountry         String?
   rentalStart           DateTime
   rentalEnd             DateTime
   actualPickupAt        DateTime?
@@ -438,6 +459,7 @@ model RentalOrder {
   @@index([priceListId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([fulfillmentMethod])
   @@index([rentalStart, rentalEnd])
 }
 
