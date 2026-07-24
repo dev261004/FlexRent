@@ -18,6 +18,9 @@ export const mapUserToPublicUser = (user: User): PublicUser => {
     productCategory: user.productCategory,
     gstNumber: user.gstNumber,
     upiId: user.upiId,
+    supportsStorePickup: user.supportsStorePickup,
+    pickupAddresses: user.pickupAddresses,
+    storeTimings: user.storeTimings,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };

@@ -22,6 +22,9 @@ const rentalOrderInclude = {
       role: true,
       companyName: true,
       upiId: true,
+      supportsStorePickup: true,
+      pickupAddresses: true,
+      storeTimings: true,
     },
   },
   priceList: true,
@@ -139,6 +142,22 @@ export class RentalOrderRepository {
       select: {
         id: true,
         role: true,
+      },
+    });
+  }
+
+  findVendorPickupSettings(id: string, db: PrismaExecutor = prisma) {
+    return (db as any).user.findFirst({
+      where: {
+        id,
+        role: "VENDOR",
+        status: "ACTIVE",
+      },
+      select: {
+        id: true,
+        supportsStorePickup: true,
+        pickupAddresses: true,
+        storeTimings: true,
       },
     });
   }

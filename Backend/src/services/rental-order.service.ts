@@ -10,6 +10,7 @@ import {
   ListRentalOrdersQuery,
   UpdateRentalOrderInput,
 } from "../validations/rental-order.validation";
+import { AddressInput } from "../validations/vendor.validation";
 import {
   PickupOrderInput,
   ReturnOrderInput,
@@ -77,6 +78,7 @@ export class RentalOrderService {
     );
 
     const totals = this.calculateTotals(calculatedItems);
+    const fulfillmentData = await this.resolveCreateFulfillmentData(payload);
 
     return rentalOrderRepository.transaction(async (tx) => {
       const rentalNumber = await rentalOrderRepository.generateRentalNumber(tx);
@@ -89,6 +91,7 @@ export class RentalOrderService {
           priceListId: calculatedItems.priceListId,
           status: EDITABLE_STATUS,
           paymentStatus: "PENDING",
+          ...fulfillmentData,
           rentalStart: payload.rentalStart,
           rentalEnd: payload.rentalEnd,
           subtotal: totals.subtotal,
@@ -178,6 +181,7 @@ export class RentalOrderService {
       order.id
     );
     const totals = this.calculateTotals(calculatedItems);
+    const fulfillmentData = await this.resolveUpdateFulfillmentData(order, payload);
 
     const updatedOrder = await rentalOrderRepository.transaction(async (tx) => {
       await rentalOrderRepository.deleteOrderItems(id, tx);
@@ -187,6 +191,7 @@ export class RentalOrderService {
         {
           rentalStart,
           rentalEnd,
+          ...fulfillmentData,
           priceListId: calculatedItems.priceListId,
           subtotal: totals.subtotal,
           securityDepositAmount: totals.securityDeposit,
@@ -746,6 +751,119 @@ export class RentalOrderService {
     if (!vendor) throw new AppError(404, "Vendor not found");
   }
 
+  private async resolveCreateFulfillmentData(payload: CreateRentalOrderInput) {
+    if (payload.fulfillmentMethod === "STORE_PICKUP") {
+      return this.resolveStorePickupData(payload.vendorId, payload.pickupAddress);
+    }
+
+    if (!payload.deliveryAddress) {
+      throw new AppError(400, "Delivery address is required for home delivery", {
+        deliveryAddress: "Delivery address is required for home delivery",
+      });
+    }
+
+    return {
+      fulfillmentMethod: "HOME_DELIVERY",
+      ...this.mapDeliveryAddressForStorage(payload.deliveryAddress),
+      ...this.emptyPickupAddressForStorage(),
+    };
+  }
+
+  private async resolveUpdateFulfillmentData(
+    order: RentalOrderRecord,
+    payload: UpdateRentalOrderInput
+  ) {
+    if (payload.fulfillmentMethod === undefined && payload.deliveryAddress === undefined && payload.pickupAddress === undefined) {
+      return {};
+    }
+
+    const fulfillmentMethod = payload.fulfillmentMethod ?? order.fulfillmentMethod;
+    if (fulfillmentMethod === "STORE_PICKUP") {
+      const storedPickup = this.mapStoredPickupAddress(order);
+      const mappedStoredPickup = storedPickup ? {
+        ...storedPickup,
+        addressLine2: storedPickup.addressLine2 ?? undefined
+      } : undefined;
+      return this.resolveStorePickupData(order.vendorId, payload.pickupAddress ?? mappedStoredPickup);
+    }
+
+    const deliveryAddress =
+      payload.deliveryAddress ??
+      this.mapStoredDeliveryAddress(order);
+
+    if (!deliveryAddress) {
+      throw new AppError(400, "Delivery address is required for home delivery", {
+        deliveryAddress: "Delivery address is required for home delivery",
+      });
+    }
+
+    return {
+      fulfillmentMethod: "HOME_DELIVERY",
+      ...this.mapDeliveryAddressForStorage(deliveryAddress),
+      ...this.emptyPickupAddressForStorage(),
+    };
+  }
+
+  private async resolveStorePickupData(vendorId: string, payloadPickupAddress?: AddressInput) {
+    const vendor = await rentalOrderRepository.findVendorPickupSettings(vendorId);
+
+    if (!vendor || !vendor.supportsStorePickup || !vendor.pickupAddresses || !Array.isArray(vendor.pickupAddresses) || vendor.pickupAddresses.length === 0) {
+      throw new AppError(400, "Store pickup is not available for this vendor.", {
+        fulfillmentMethod: "Store pickup is not available for this vendor.",
+      });
+    }
+
+    if (!payloadPickupAddress) {
+      throw new AppError(400, "Pickup address is required when choosing store pickup.", {
+        pickupAddress: "Pickup address is required when choosing store pickup.",
+      });
+    }
+
+    return {
+      fulfillmentMethod: "STORE_PICKUP",
+      ...this.emptyDeliveryAddressForStorage(),
+      pickupAddressLine1: payloadPickupAddress.addressLine1,
+      pickupAddressLine2: payloadPickupAddress.addressLine2 ?? null,
+      pickupCity: payloadPickupAddress.city,
+      pickupState: payloadPickupAddress.state,
+      pickupPostalCode: payloadPickupAddress.postalCode,
+      pickupCountry: payloadPickupAddress.country,
+    };
+  }
+
+  private mapDeliveryAddressForStorage(address: AddressInput) {
+    return {
+      deliveryAddressLine1: address.addressLine1,
+      deliveryAddressLine2: address.addressLine2 ?? null,
+      deliveryCity: address.city,
+      deliveryState: address.state,
+      deliveryPostalCode: address.postalCode,
+      deliveryCountry: address.country,
+    };
+  }
+
+  private emptyDeliveryAddressForStorage() {
+    return {
+      deliveryAddressLine1: null,
+      deliveryAddressLine2: null,
+      deliveryCity: null,
+      deliveryState: null,
+      deliveryPostalCode: null,
+      deliveryCountry: null,
+    };
+  }
+
+  private emptyPickupAddressForStorage() {
+    return {
+      pickupAddressLine1: null,
+      pickupAddressLine2: null,
+      pickupCity: null,
+      pickupState: null,
+      pickupPostalCode: null,
+      pickupCountry: null,
+    };
+  }
+
   private assertCanCreateForCustomer(customerId: string, user: ProductRequester) {
     if (user.role === "CUSTOMER" && user.id !== customerId) {
       throw new AppError(403, "Customers can only create their own rental orders");
@@ -1226,6 +1344,9 @@ export class RentalOrderService {
       priceListId: order.priceListId,
       status: order.status,
       paymentStatus: order.paymentStatus,
+      fulfillmentMethod: order.fulfillmentMethod,
+      deliveryAddress: this.mapStoredDeliveryAddress(order),
+      pickupLocation: this.mapStoredPickupAddress(order),
       rentalStart: order.rentalStart.toISOString(),
       rentalEnd: order.rentalEnd.toISOString(),
       actualPickupAt: order.actualPickupAt?.toISOString() ?? null,
@@ -1267,6 +1388,47 @@ export class RentalOrderService {
       paymentSummary: this.buildPaymentSummary(order),
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
+    };
+  }
+
+  private mapStoredDeliveryAddress(order: RentalOrderRecord): AddressInput | null {
+    if (!order.deliveryAddressLine1) return null;
+
+    return {
+      addressLine1: order.deliveryAddressLine1,
+      addressLine2: order.deliveryAddressLine2 ?? undefined,
+      city: order.deliveryCity,
+      state: order.deliveryState,
+      postalCode: order.deliveryPostalCode,
+      country: order.deliveryCountry,
+    };
+  }
+
+  private mapStoredPickupAddress(order: RentalOrderRecord) {
+    if (!order.pickupAddressLine1) return null;
+
+    return {
+      addressLine1: order.pickupAddressLine1,
+      addressLine2: order.pickupAddressLine2,
+      city: order.pickupCity,
+      state: order.pickupState,
+      postalCode: order.pickupPostalCode,
+      country: order.pickupCountry,
+    };
+  }
+
+  private mapVendorPickupAddress(vendor: any): AddressInput | null {
+    if (!vendor?.supportsStorePickup || !vendor.pickupAddressLine1) {
+      return null;
+    }
+
+    return {
+      addressLine1: vendor.pickupAddressLine1,
+      addressLine2: vendor.pickupAddressLine2 ?? undefined,
+      city: vendor.pickupCity,
+      state: vendor.pickupState,
+      postalCode: vendor.pickupPostalCode,
+      country: vendor.pickupCountry,
     };
   }
 

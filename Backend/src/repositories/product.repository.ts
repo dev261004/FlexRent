@@ -12,6 +12,9 @@ const publicUserSelect = {
   lastName: true,
   profileImage: true,
   companyName: true,
+  supportsStorePickup: true,
+  pickupAddresses: true,
+  storeTimings: true,
 } satisfies Prisma.UserSelect;
 
 export const productDetailInclude = {

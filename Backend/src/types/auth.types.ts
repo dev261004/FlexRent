@@ -14,6 +14,9 @@ export type PublicUser = {
   productCategory: string | null;
   gstNumber: string | null;
   upiId: string | null;
+  supportsStorePickup: boolean | null;
+  pickupAddresses: any | null;
+  storeTimings: any | null;
   createdAt: string;
   updatedAt: string;
 };

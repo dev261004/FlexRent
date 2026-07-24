@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { addressSchema } from "./vendor.validation";
 
 const emptyStringToUndefined = (value: unknown): unknown => {
   if (typeof value === "string" && value.trim() === "") return undefined;
@@ -68,6 +69,11 @@ export const createRentalOrderSchema = z
   .object({
     customerId: idSchema,
     vendorId: idSchema,
+    fulfillmentMethod: z
+      .enum(["HOME_DELIVERY", "STORE_PICKUP"])
+      .default("HOME_DELIVERY"),
+    deliveryAddress: addressSchema.optional(),
+    pickupAddress: addressSchema.optional(),
     rentalStart: requiredDate("Rental start"),
     rentalEnd: requiredDate("Rental end"),
     notes: optionalText(1000),
@@ -77,10 +83,29 @@ export const createRentalOrderSchema = z
       .max(50, "You can add up to 50 rental items"),
   })
   .strict()
+  .superRefine((data, ctx) => {
+    if (data.fulfillmentMethod === "HOME_DELIVERY" && !data.deliveryAddress) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryAddress"],
+        message: "Delivery address is required for home delivery",
+      });
+    }
+    if (data.fulfillmentMethod === "STORE_PICKUP" && !data.pickupAddress) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pickupAddress"],
+        message: "Pickup address is required for store pickup",
+      });
+    }
+  })
   .superRefine(validateRentalDates);
 
 export const updateRentalOrderSchema = z
   .object({
+    fulfillmentMethod: z.enum(["HOME_DELIVERY", "STORE_PICKUP"]).optional(),
+    deliveryAddress: addressSchema.optional(),
+    pickupAddress: addressSchema.optional(),
     rentalStart: optionalDate,
     rentalEnd: optionalDate,
     notes: optionalText(1000),

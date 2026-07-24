@@ -777,6 +777,7 @@ export class ProductService {
         ? this.mapImage(product.images[0])
         : null,
       vendor: this.mapProductUser(product.vendor),
+      fulfillmentOptions: this.mapFulfillmentOptions(product.vendor),
       assetCount: product._count.assets,
       imageCount: product._count.images,
       variantCount: product._count.variants,
@@ -804,6 +805,7 @@ export class ProductService {
         ? this.mapRentalConfig(product.rentalConfig)
         : null,
       vendor: this.mapProductUser(product.vendor),
+      fulfillmentOptions: this.mapFulfillmentOptions(product.vendor),
       createdBy: this.mapProductUser(product.createdBy),
       assetCount: product._count.assets,
       imageCount: product._count.images,
@@ -829,6 +831,34 @@ export class ProductService {
       profileImage: user.profileImage,
       companyName: user.companyName,
     };
+  }
+
+  private mapFulfillmentOptions(vendor: ProductUserRecord | null) {
+    const pickupAddresses = this.mapPickupAddresses(vendor);
+
+    return {
+      homeDelivery: {
+        available: true,
+      },
+      storePickup: pickupAddresses
+        ? {
+            available: true,
+            pickupAddresses,
+            storeTimings: vendor?.storeTimings ?? null,
+          }
+        : {
+            available: false,
+            message: "Store pickup is not available for this vendor.",
+          },
+    };
+  }
+
+  private mapPickupAddresses(user: ProductUserRecord | null) {
+    if (!user?.supportsStorePickup || !user.pickupAddresses || !Array.isArray(user.pickupAddresses) || user.pickupAddresses.length === 0) {
+      return null;
+    }
+
+    return user.pickupAddresses;
   }
 
   private mapCategory(category: ProductCategoryRecord | null) {
