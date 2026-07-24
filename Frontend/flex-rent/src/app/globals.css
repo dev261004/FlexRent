@@ -6,6 +6,8 @@
   --app-surface-inventory: #f5f2ed;
   --app-accent: #eab308;
   --app-danger: #dc2626;
+  --app-danger-text: #fca5a5;
+  --app-danger-bg: rgba(239, 68, 68, 0.15);
   --app-chalk: #a8a29e;
   --app-text: #f5f2ed;
   --app-text-subtle: #9a9490;
@@ -18,6 +20,8 @@
   --color-surface-inventory: var(--app-surface-inventory);
   --color-accent: var(--app-accent);
   --color-danger: var(--app-danger);
+  --color-danger-text: var(--app-danger-text);
+  --color-danger-bg: var(--app-danger-bg);
   --color-chalk: var(--app-chalk);
   --color-text: var(--app-text);
   --color-text-subtle: var(--app-text-subtle);
@@ -33,6 +37,8 @@
   --app-surface-inventory: #e8e4df;
   --app-accent: #eab308;
   --app-danger: #dc2626;
+  --app-danger-text: #b91c1c;
+  --app-danger-bg: rgba(239, 68, 68, 0.08);
   --app-chalk: #6b6560;
   --app-text: #1a1817;
   --app-text-subtle: #746e68;

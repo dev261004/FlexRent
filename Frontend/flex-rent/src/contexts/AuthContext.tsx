@@ -23,6 +23,9 @@ export interface User {
   productCategory?: string | null;
   gstNumber?: string | null;
   upiId?: string | null;
+  supportsStorePickup?: boolean;
+  pickupAddresses?: any;
+  storeTimings?: any;
   createdAt?: string;
   updatedAt?: string;
 }

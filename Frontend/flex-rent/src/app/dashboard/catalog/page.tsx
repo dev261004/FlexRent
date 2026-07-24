@@ -26,6 +26,7 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
   const [address, setAddress] = useState("");
   const [addresses, setAddresses] = useState<string[]>([]);
   const [isNewAddress, setIsNewAddress] = useState(false);
+  const [selectedPickupIndex, setSelectedPickupIndex] = useState(0);
   const [payment, setPayment] = useState("UPI");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -79,12 +80,23 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
         rentalStart: new Date(start).toISOString(),
         rentalEnd: new Date(end).toISOString(),
         quantity,
-        notes: `${fulfilment === "delivery" ? `Delivery address: ${address.trim()}` : "Store collection selected"}. Payment preference: ${payment}.`
+        fulfillmentMethod: fulfilment === "delivery" ? "HOME_DELIVERY" : "STORE_PICKUP",
+        deliveryAddress: fulfilment === "delivery" ? {
+          addressLine1: address.trim(),
+          city: "Unknown",
+          state: "Unknown",
+          postalCode: "000000",
+          country: "Unknown"
+        } : undefined,
+        pickupAddress: fulfilment === "pickup" ? (
+          (product as any).fulfillmentOptions?.storePickup?.pickupAddresses?.[selectedPickupIndex] || undefined
+        ) : undefined,
+        notes: `Payment preference: ${payment}.`
       });
       setSuccess(order.rentalNumber);
     } catch (err: unknown) {
       setError(err instanceof Error ? "Could not place your booking. Check dates and availability, then try again." : "Could not place your booking.");
-    } finally {
+        } finally {
       setPending(false);
     }
   };
@@ -121,7 +133,20 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
               <p className="text-sm font-semibold text-text">How would you like to receive it?</p>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
                 <button type="button" onClick={()=>setFulfilment("delivery")} className={`rounded-xl border p-3 text-left text-sm font-semibold ${fulfilment === "delivery" ? "border-accent bg-accent/10 text-text" : "border-border text-chalk"}`}><MapPin size={17} className="mb-1 text-accent"/>Delivery</button>
-                <button type="button" onClick={()=>setFulfilment("pickup")} className={`rounded-xl border p-3 text-left text-sm font-semibold ${fulfilment === "pickup" ? "border-accent bg-accent/10 text-text" : "border-border text-chalk"}`}><CalendarDays size={17} className="mb-1 text-accent"/>Collect from store</button>
+                <button 
+                  type="button" 
+                  disabled={(product as any).fulfillmentOptions?.storePickup?.available === false}
+                  onClick={()=>setFulfilment("pickup")} 
+                  className={`rounded-xl border p-3 text-left text-sm font-semibold ${fulfilment === "pickup" ? "border-accent bg-accent/10 text-text" : "border-border text-chalk"} ${(product as any).fulfillmentOptions?.storePickup?.available === false ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <CalendarDays size={17} className="mb-1 text-accent"/>
+                  Collect from store
+                  {(product as any).fulfillmentOptions?.storePickup?.available === false && (
+                    <span className="block mt-1 text-xs font-normal text-red-500">
+                      {(product as any).fulfillmentOptions.storePickup.message || "Not available"}
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
             {fulfilment === "delivery" && (
@@ -153,6 +178,43 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
                 
                 {(isNewAddress || addresses.length === 0) && (
                   <textarea value={address} onChange={e=>setAddress(e.target.value)} rows={2} placeholder="House, street, area, city and PIN code" className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" />
+                )}
+              </div>
+            )}
+            
+            {fulfilment === "pickup" && (product as any).fulfillmentOptions?.storePickup?.pickupAddresses && (
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-text">Pickup Location</label>
+                <select 
+                  className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-text"
+                  value={selectedPickupIndex}
+                  onChange={e => setSelectedPickupIndex(Number(e.target.value))}
+                >
+                  {(product as any).fulfillmentOptions.storePickup.pickupAddresses.map((addr: any, idx: number) => (
+                    <option key={idx} value={idx}>
+                      {addr.addressLine1}, {addr.city}
+                    </option>
+                  ))}
+                </select>
+                
+                {(product as any).fulfillmentOptions.storePickup.storeTimings && (
+                  <div className="mt-4 p-4 rounded-xl border border-border bg-surface">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-chalk mb-2">Store Timings</h4>
+                    <div className="grid gap-1 text-sm text-text">
+                      {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map(day => {
+                        const timing = (product as any).fulfillmentOptions.storePickup.storeTimings[day];
+                        if (!timing) return null;
+                        return (
+                          <div key={day} className="flex justify-between border-b border-border/50 pb-1 last:border-0 last:pb-0">
+                            <span className="capitalize text-chalk">{day}</span>
+                            <span className="font-semibold">
+                              {timing.closed ? "Closed" : `${timing.open} - ${timing.close}`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             )}

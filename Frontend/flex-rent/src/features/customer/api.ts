@@ -14,6 +14,23 @@ export type RentalOrder = {
   rejectedAt?: string | null; rejectionReason?: string | null; notes?: string | null;
   rentalStart: string; rentalEnd: string; grandTotal: string; subtotal: string;
   securityDepositAmount: string; lateFee?: string;
+  fulfillmentMethod?: string;
+  deliveryAddress?: {
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  } | null;
+  pickupLocation?: {
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  } | null;
   vendor?: { fullName?: string; firstName?: string; lastName?: string | null; companyName?: string | null; email?: string; phone?: string | null; upiId?: string | null } | null;
   customer?: { fullName?: string; firstName?: string; lastName?: string | null; email?: string; phone?: string | null } | null;
   items: Array<{ id: string; quantity: number; rentalPrice?: string; deposit?: string; subtotal?: string; product: { name: string; description?: string | null; primaryImage?: { url: string; altText?: string | null } | null; category?: { name: string } | null } }>;
@@ -23,7 +40,7 @@ export type RentalOrder = {
 
 export async function getProducts(search = "") {
   const response = await api.get("/products", { params: { limit: 48, status: "ACTIVE", search: search || undefined, sortBy: "createdAt", order: "desc" } });
-  return response.data.data as { products: Product[]; pagination: { total: number } };
+  return response.data.data as { products: (Product & { fulfillmentOptions?: any })[]; pagination: { total: number } };
 }
 
 export async function getOrders() {
@@ -56,13 +73,25 @@ export async function getOperationsDashboard() {
   return response.data.data.dashboard as { metrics: { activeRentals: number; rentalsDueToday: number; upcomingPickups: number; upcomingReturns: number; overdueRentals: number; revenueFromRentals: string } };
 }
 
-export async function createBooking(input: { customerId: string; vendorId: string; productId: string; rentalStart: string; rentalEnd: string; quantity: number; notes?: string }) {
+export async function createBooking(input: { customerId: string; vendorId: string; productId: string; rentalStart: string; rentalEnd: string; quantity: number; notes?: string; fulfillmentMethod?: string; deliveryAddress?: any; pickupAddress?: any }) {
   const response = await api.post("/rental-orders", {
     customerId: input.customerId, vendorId: input.vendorId, rentalStart: input.rentalStart,
     rentalEnd: input.rentalEnd, notes: input.notes,
+    fulfillmentMethod: input.fulfillmentMethod,
+    deliveryAddress: input.deliveryAddress,
+    pickupAddress: input.pickupAddress,
     items: [{ productId: input.productId, quantity: input.quantity }],
   });
   return response.data.data.rentalOrder as RentalOrder;
+}
+
+export async function updatePickupSettings(supportsStorePickup: boolean, pickupAddresses?: any, storeTimings?: any) {
+  const response = await api.put("/vendors/me/pickup-settings", {
+    supportsStorePickup,
+    pickupAddresses,
+    storeTimings,
+  });
+  return response.data.data;
 }
 
 export async function updateProfile(input: Record<string, string | null>) {

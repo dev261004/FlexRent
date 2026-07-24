@@ -74,6 +74,7 @@ export function OperationsTable() {
               <th className="px-5 py-3">Customer</th>
               <th className="px-5 py-3">Product</th>
               <th className="px-5 py-3">Rental period</th>
+              <th className="px-5 py-3">Fulfillment</th>
               <th className="px-5 py-3">Status</th>
               <th className="px-5 py-3">Payment</th>
               <th className="px-5 py-3">Action</th>
@@ -81,15 +82,26 @@ export function OperationsTable() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="p-10 text-center text-chalk">Loading orders...</td></tr>
+              <tr><td colSpan={8} className="p-10 text-center text-chalk">Loading orders...</td></tr>
             ) : actionable.length === 0 ? (
-              <tr><td colSpan={7} className="p-10 text-center text-chalk">No active customer bookings yet.</td></tr>
+              <tr><td colSpan={8} className="p-10 text-center text-chalk">No active customer bookings yet.</td></tr>
             ) : actionable.map((order) => (
               <tr key={order.id} className="border-t border-border/60">
                 <td className="px-5 py-4 font-mono text-xs font-bold text-text">{order.rentalNumber}</td>
                 <td className="px-5 py-4 text-text">{order.customer?.fullName ?? ([order.customer?.firstName, order.customer?.lastName].filter(Boolean).join(" ") || "Customer")}</td>
                 <td className="px-5 py-4 text-text">{order.items.map((item) => item.product.name).join(", ")}</td>
                 <td className="px-5 py-4 text-chalk">{new Date(order.rentalStart).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - {new Date(order.rentalEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
+                <td className="px-5 py-4">
+                  {order.fulfillmentMethod === "STORE_PICKUP" ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-1 text-xs font-bold text-blue-600 dark:text-blue-400">
+                      Store Pickup
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-1 text-xs font-bold text-accent">
+                      Delivery
+                    </span>
+                  )}
+                </td>
                 <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusStyle[order.status] ?? statusStyle.QUOTATION}`}>{label(order.status)}</span></td>
                 <td className="px-5 py-4"><span className="rounded-full bg-black/5 px-2.5 py-1 text-xs font-bold text-chalk dark:bg-white/10">{label(order.paymentStatus)}</span></td>
                 <td className="px-5 py-4">

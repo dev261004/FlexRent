@@ -309,16 +309,27 @@ export default function OrderDetailPage() {
 
         {/* Delivery Details */}
         <section>
-          <h2 className="mb-4 font-display text-xl font-semibold text-text">Delivery Details</h2>
+          <h2 className="mb-4 font-display text-xl font-semibold text-text">
+            {order.fulfillmentMethod === "STORE_PICKUP" ? "Pickup Details" : "Delivery Details"}
+          </h2>
           <div className="rounded-2xl border border-border/60 bg-surface/30 p-6">
             <div className="space-y-4">
               <div className="flex items-start gap-3 w-full">
                 <span className="text-sm font-semibold text-chalk shrink-0 min-w-32">Method:</span>
-                <span className="text-sm font-medium text-text flex-1 min-w-0 break-words">{booking.fulfilment}</span>
+                <span className="text-sm font-medium text-text flex-1 min-w-0 break-words">
+                  {order.fulfillmentMethod === "STORE_PICKUP" ? "Store Pickup" : "Home Delivery"}
+                </span>
               </div>
               <div className="flex items-start gap-3 w-full">
-                <span className="text-sm font-semibold text-chalk shrink-0 min-w-32">Delivery Address:</span>
-                <span className="text-sm font-medium text-text flex-1 min-w-0 break-all sm:break-words">{booking.address || "N/A"}</span>
+                <span className="text-sm font-semibold text-chalk shrink-0 min-w-32">
+                  {order.fulfillmentMethod === "STORE_PICKUP" ? "Store Address:" : "Delivery Address:"}
+                </span>
+                <span className="text-sm font-medium text-text flex-1 min-w-0 break-all sm:break-words">
+                  {order.fulfillmentMethod === "STORE_PICKUP" 
+                    ? [order.pickupLocation?.addressLine1, order.pickupLocation?.city, order.pickupLocation?.state, order.pickupLocation?.postalCode, order.pickupLocation?.country].filter(Boolean).join(", ") || "Address not provided"
+                    : [order.deliveryAddress?.addressLine1, order.deliveryAddress?.city, order.deliveryAddress?.state, order.deliveryAddress?.postalCode, order.deliveryAddress?.country].filter(Boolean).join(", ") || booking.address || "N/A"
+                  }
+                </span>
               </div>
               <div className="flex items-start gap-3 w-full">
                 <span className="text-sm font-semibold text-chalk shrink-0 min-w-32">Rental Period:</span>
