@@ -34,6 +34,9 @@ export default function VendorProfilePage() {
 
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
+  
+  const [isAddressesOpen, setIsAddressesOpen] = useState(true);
+  const [isTimingsOpen, setIsTimingsOpen] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -99,8 +102,8 @@ export default function VendorProfilePage() {
       
       const pickupUpdatedRes = await updatePickupSettings(
         wantsPickup, 
-        wantsPickup ? pickupAddresses : undefined,
-        wantsPickup ? storeTimings : undefined
+        pickupAddresses,
+        storeTimings
       );
       const pickupUpdated = pickupUpdatedRes.pickupSettings;
 
@@ -237,80 +240,94 @@ export default function VendorProfilePage() {
 
             {wantsPickup && (
               <div className="mt-6 flex flex-col gap-6">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
+                <div className="rounded-xl border border-border bg-surface overflow-hidden">
+                  <div className="flex items-center justify-between p-4 bg-surface hover:bg-white/5 cursor-pointer" onClick={() => setIsAddressesOpen(!isAddressesOpen)}>
                     <h3 className="font-semibold text-text text-sm">Pickup Addresses</h3>
-                    <button 
-                      type="button" 
-                      onClick={() => setPickupAddresses([...pickupAddresses, { addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "", country: "" }])}
-                      className="flex items-center gap-1 text-xs text-accent font-bold hover:underline"
-                    >
-                      <Plus size={14} /> Add Address
-                    </button>
-                  </div>
-                  {pickupAddresses.length === 0 && (
-                    <p className="text-xs text-chalk mb-2">No addresses added. Please add at least one pickup address.</p>
-                  )}
-                  {pickupAddresses.map((addr, idx) => (
-                    <div key={idx} className="mb-4 p-4 border border-border rounded-xl bg-surface relative">
+                    <div className="flex items-center gap-4">
                       <button 
                         type="button" 
-                        onClick={() => setPickupAddresses(pickupAddresses.filter((_, i) => i !== idx))}
-                        className="absolute top-4 right-4 text-chalk hover:text-red-500"
+                        onClick={(e) => { e.stopPropagation(); setPickupAddresses([...pickupAddresses, { addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "", country: "" }]); setIsAddressesOpen(true); }}
+                        className="flex items-center gap-1 text-xs text-accent font-bold hover:underline"
                       >
-                        <Trash size={16} />
+                        <Plus size={14} /> Add Address
                       </button>
-                      <h4 className="text-xs font-bold text-chalk mb-3 uppercase tracking-wider">Address {idx + 1}</h4>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <input required value={addr.addressLine1} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], addressLine1: e.target.value}; setPickupAddresses(n);}} placeholder="Address Line 1" className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
-                        <input value={addr.addressLine2} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], addressLine2: e.target.value}; setPickupAddresses(n);}} placeholder="Address Line 2 (Optional)" className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
-                        <input required value={addr.city} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], city: e.target.value}; setPickupAddresses(n);}} placeholder="City" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
-                        <input required value={addr.state} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], state: e.target.value}; setPickupAddresses(n);}} placeholder="State" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
-                        <input required value={addr.postalCode} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], postalCode: e.target.value}; setPickupAddresses(n);}} placeholder="Postal Code" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
-                        <input required value={addr.country} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], country: e.target.value}; setPickupAddresses(n);}} placeholder="Country" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
-                      </div>
+                      <span className="text-chalk text-xl leading-none">{isAddressesOpen ? "−" : "+"}</span>
                     </div>
-                  ))}
+                  </div>
+                  {isAddressesOpen && (
+                    <div className="p-4 border-t border-border bg-surface-raised">
+                      {pickupAddresses.length === 0 && (
+                        <p className="text-xs text-chalk mb-2">No addresses added. Please add at least one pickup address.</p>
+                      )}
+                      {pickupAddresses.map((addr, idx) => (
+                        <div key={idx} className="mb-4 p-4 border border-border rounded-xl bg-surface relative">
+                          <button 
+                            type="button" 
+                            onClick={() => setPickupAddresses(pickupAddresses.filter((_, i) => i !== idx))}
+                            className="absolute top-4 right-4 text-chalk hover:text-red-500"
+                          >
+                            <Trash size={16} />
+                          </button>
+                          <h4 className="text-xs font-bold text-chalk mb-3 uppercase tracking-wider">Address {idx + 1}</h4>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <input required value={addr.addressLine1} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], addressLine1: e.target.value}; setPickupAddresses(n);}} placeholder="Address Line 1" className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
+                            <input value={addr.addressLine2} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], addressLine2: e.target.value}; setPickupAddresses(n);}} placeholder="Address Line 2 (Optional)" className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
+                            <input required value={addr.city} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], city: e.target.value}; setPickupAddresses(n);}} placeholder="City" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
+                            <input required value={addr.state} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], state: e.target.value}; setPickupAddresses(n);}} placeholder="State" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
+                            <input required value={addr.postalCode} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], postalCode: e.target.value}; setPickupAddresses(n);}} placeholder="Postal Code" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
+                            <input required value={addr.country} onChange={e=>{const n=[...pickupAddresses]; n[idx]={...n[idx], country: e.target.value}; setPickupAddresses(n);}} placeholder="Country" className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <div className="pt-4 border-t border-border">
-                  <h3 className="font-semibold text-text text-sm mb-3">Store Timings</h3>
-                  <div className="grid gap-3">
-                    {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map(day => (
-                      <div key={day} className="flex items-center gap-3">
-                        <label className="flex items-center gap-2 w-28 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            checked={!storeTimings[day]?.closed}
-                            onChange={(e) => setStoreTimings({...storeTimings, [day]: { ...storeTimings[day], closed: !e.target.checked }})}
-                            className="accent-accent"
-                          />
-                          <span className="text-sm font-medium capitalize text-text">{day}</span>
-                        </label>
-                        {!storeTimings[day]?.closed ? (
-                          <div className="flex items-center gap-2">
-                            <input 
-                              type="time" 
-                              required 
-                              value={storeTimings[day]?.open || "09:00"}
-                              onChange={e => setStoreTimings({...storeTimings, [day]: { ...storeTimings[day], open: e.target.value }})}
-                              className="rounded-lg border border-border bg-surface px-2 py-1 text-sm text-text"
-                            />
-                            <span className="text-sm text-chalk">to</span>
-                            <input 
-                              type="time" 
-                              required 
-                              value={storeTimings[day]?.close || "18:00"}
-                              onChange={e => setStoreTimings({...storeTimings, [day]: { ...storeTimings[day], close: e.target.value }})}
-                              className="rounded-lg border border-border bg-surface px-2 py-1 text-sm text-text"
-                            />
-                          </div>
-                        ) : (
-                          <span className="text-sm text-chalk italic">Closed</span>
-                        )}
-                      </div>
-                    ))}
+                <div className="rounded-xl border border-border bg-surface overflow-hidden">
+                  <div className="flex items-center justify-between p-4 bg-surface hover:bg-white/5 cursor-pointer" onClick={() => setIsTimingsOpen(!isTimingsOpen)}>
+                    <h3 className="font-semibold text-text text-sm">Store Timings</h3>
+                    <span className="text-chalk text-xl leading-none">{isTimingsOpen ? "−" : "+"}</span>
                   </div>
+                  {isTimingsOpen && (
+                    <div className="p-4 border-t border-border bg-surface-raised grid gap-3">
+                      {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map(day => (
+                        <div key={day} className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 w-28 cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={!storeTimings[day]?.closed}
+                              onChange={e => setStoreTimings({...storeTimings, [day]: { ...storeTimings[day], closed: !e.target.checked }})}
+                              className="accent-accent"
+                            />
+                            <span className="text-sm font-semibold capitalize text-text">{day}</span>
+                          </label>
+                          <div className="flex flex-1 items-center gap-2">
+                            {!storeTimings[day]?.closed ? (
+                              <div className="flex items-center gap-2">
+                                <input 
+                                  type="time" 
+                                  required 
+                                  value={storeTimings[day]?.open || "09:00"}
+                                  onChange={e => setStoreTimings({...storeTimings, [day]: { ...storeTimings[day], open: e.target.value }})}
+                                  className="rounded-lg border border-border bg-surface px-2 py-1 text-sm text-text"
+                                />
+                                <span className="text-chalk text-sm">to</span>
+                                <input 
+                                  type="time" 
+                                  required 
+                                  value={storeTimings[day]?.close || "18:00"}
+                                  onChange={e => setStoreTimings({...storeTimings, [day]: { ...storeTimings[day], close: e.target.value }})}
+                                  className="rounded-lg border border-border bg-surface px-2 py-1 text-sm text-text"
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-sm text-chalk italic">Closed</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

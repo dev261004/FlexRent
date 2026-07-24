@@ -21,8 +21,8 @@ export class VendorService {
 
     const vendor = await vendorRepository.updatePickupSettings(user.id, {
       supportsStorePickup: payload.supportsStorePickup,
-      pickupAddresses: payload.supportsStorePickup && pickupAddresses && pickupAddresses.length > 0 ? pickupAddresses : Prisma.JsonNull,
-      storeTimings: payload.supportsStorePickup && storeTimings ? storeTimings : Prisma.JsonNull,
+      pickupAddresses: pickupAddresses ? pickupAddresses : Prisma.JsonNull,
+      storeTimings: storeTimings ? storeTimings : Prisma.JsonNull,
     });
 
     return this.mapVendorPickupSettings(vendor);

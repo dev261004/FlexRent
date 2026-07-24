@@ -28,6 +28,7 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
   const [isNewAddress, setIsNewAddress] = useState(false);
   const [selectedPickupIndex, setSelectedPickupIndex] = useState(0);
   const [payment, setPayment] = useState("UPI");
+  const [isTimingsOpen, setIsTimingsOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -198,22 +199,31 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
                 </select>
                 
                 {(product as any).fulfillmentOptions.storePickup.storeTimings && (
-                  <div className="mt-4 p-4 rounded-xl border border-border bg-surface">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-chalk mb-2">Store Timings</h4>
-                    <div className="grid gap-1 text-sm text-text">
-                      {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map(day => {
-                        const timing = (product as any).fulfillmentOptions.storePickup.storeTimings[day];
-                        if (!timing) return null;
-                        return (
-                          <div key={day} className="flex justify-between border-b border-border/50 pb-1 last:border-0 last:pb-0">
-                            <span className="capitalize text-chalk">{day}</span>
-                            <span className="font-semibold">
-                              {timing.closed ? "Closed" : `${timing.open} - ${timing.close}`}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <div className="mt-4 rounded-xl border border-border bg-surface overflow-hidden">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsTimingsOpen(!isTimingsOpen)}
+                      className="flex w-full items-center justify-between p-4 text-left hover:bg-white/5"
+                    >
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-chalk">Store Timings</h4>
+                      <span className="text-chalk text-xl leading-none">{isTimingsOpen ? "−" : "+"}</span>
+                    </button>
+                    {isTimingsOpen && (
+                      <div className="grid gap-1 px-4 pb-4 text-sm text-text">
+                        {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map(day => {
+                          const timing = (product as any).fulfillmentOptions.storePickup.storeTimings[day];
+                          if (!timing) return null;
+                          return (
+                            <div key={day} className="flex justify-between border-b border-border/50 pb-1 last:border-0 last:pb-0">
+                              <span className="capitalize text-chalk">{day}</span>
+                              <span className="font-semibold">
+                                {timing.closed ? "Closed" : `${timing.open} - ${timing.close}`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
