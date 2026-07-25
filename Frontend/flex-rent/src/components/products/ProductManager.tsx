@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import {
+  AlertTriangle,
   Archive,
   Camera,
   CheckCircle2,
@@ -11,6 +12,8 @@ import {
   ChevronRight,
   Edit3,
   ImagePlus,
+  LayoutGrid,
+  List,
   PackageSearch,
   Plus,
   RefreshCw,
@@ -96,6 +99,8 @@ export function ProductManager({
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [productImageFiles, setProductImageFiles] = useState<File[]>([]);
   const [imageBusy, setImageBusy] = useState(false);
+  const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
   const loadProducts = useCallback(
     async (page = 1) => {
@@ -198,17 +203,18 @@ export function ProductManager({
     }
   }
 
-  async function archive(id: string) {
-    if (!window.confirm("Archive this product?")) return;
+  async function confirmDelete() {
+    if (!productToDelete) return;
     try {
       setSaving(true);
-      await archiveProduct(id);
-      toast.success("Product archived.");
+      await archiveProduct(productToDelete);
+      toast.success("Product deleted.");
       await loadProducts(pagination.page);
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to archive product"));
+      toast.error(getErrorMessage(err, "Failed to delete product"));
     } finally {
       setSaving(false);
+      setProductToDelete(null);
     }
   }
 
@@ -286,7 +292,7 @@ export function ProductManager({
       <PageHeader title={title} description={description} action={action} />
 
       <Panel className="mb-6 p-4">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto_auto]">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -303,6 +309,24 @@ export function ProductManager({
             <option value="DRAFT">Draft</option>
             <option value="ARCHIVED">Archived</option>
           </select>
+          <div className="flex rounded-xl border border-border bg-surface p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`flex flex-1 items-center justify-center rounded-lg px-3 py-1.5 transition ${viewMode === "table" ? "bg-accent text-[#1a1817] shadow-sm" : "text-chalk hover:text-text"}`}
+              title="Table View"
+            >
+              <List size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              className={`flex flex-1 items-center justify-center rounded-lg px-3 py-1.5 transition ${viewMode === "grid" ? "bg-accent text-[#1a1817] shadow-sm" : "text-chalk hover:text-text"}`}
+              title="Grid View"
+            >
+              <LayoutGrid size={16} />
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => void loadProducts(pagination.page)}
@@ -341,7 +365,7 @@ export function ProductManager({
             <h3 className="mt-4 font-display text-lg font-semibold text-text">No products found</h3>
             <p className="mt-1 max-w-sm text-sm text-chalk">Create a product to start building the rental catalog.</p>
           </div>
-        ) : (
+        ) : viewMode === "table" ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-sm">
               <thead>
@@ -381,7 +405,7 @@ export function ProductManager({
                         <IconButton label="Edit product" onClick={() => void openEditForm(product.id)} icon={<Edit3 size={15} />} />
                         <IconButton label="Manage images" onClick={() => void openImages(product)} icon={<Camera size={15} />} />
                         {product.status !== "ARCHIVED" && (
-                          <IconButton label="Archive product" onClick={() => void archive(product.id)} icon={<Archive size={15} />} danger />
+                          <IconButton label="Delete product" onClick={() => setProductToDelete(product.id)} icon={<Trash2 size={15} />} danger />
                         )}
                       </div>
                     </td>
@@ -389,6 +413,51 @@ export function ProductManager({
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : (
+          <div className="grid gap-5 p-5 sm:grid-cols-2 xl:grid-cols-3">
+            {products.map((product) => (
+              <article key={product.id} className="group overflow-hidden rounded-2xl border border-border bg-surface-raised transition hover:-translate-y-1 hover:border-accent/60">
+                <div className="relative h-44 w-full">
+                  <img
+                    src={getImageUrl(product.primaryImage?.url)}
+                    alt={product.primaryImage?.altText ?? product.name}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute right-3 top-3 shadow-md rounded-full bg-surface">
+                    <StatusBadge status={product.status} />
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wide text-accent">
+                        {product.category?.name ?? "Uncategorized"}
+                      </p>
+                      <h2 className="mt-2 font-display text-lg font-bold text-text">{product.name}</h2>
+                    </div>
+                    <span className="shrink-0 rounded-lg bg-black/5 px-2 py-1 text-xs font-bold text-text dark:bg-white/5">
+                      {product.quantityOnHand} in stock
+                    </span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 h-10 text-sm leading-5 text-chalk">
+                    {product.description ?? "No description provided."}
+                  </p>
+                  <div className="mt-5 flex items-center justify-between border-t border-border/50 pt-4">
+                    <div>
+                      <p className="font-display text-xl font-bold text-text">{formatMoney(product.salesPrice)}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <IconButton label="Edit" onClick={() => void openEditForm(product.id)} icon={<Edit3 size={15} />} />
+                      <IconButton label="Images" onClick={() => void openImages(product)} icon={<Camera size={15} />} />
+                      {product.status !== "ARCHIVED" && (
+                        <IconButton label="Delete" onClick={() => setProductToDelete(product.id)} icon={<Trash2 size={15} />} danger />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
           </div>
         )}
 
@@ -412,7 +481,7 @@ export function ProductManager({
             <label className="text-sm font-semibold text-text">Description<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold text-text">Type<select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as ProductType })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"><option value="GOODS">Goods</option><option value="SERVICE">Service</option></select></label>
-              <label className="text-sm font-semibold text-text">Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ProductStatus })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"><option value="ACTIVE">Active</option><option value="DRAFT">Draft</option><option value="ARCHIVED">Archived</option></select></label>
+              <label className="text-sm font-semibold text-text">Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ProductStatus })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"><option value="ACTIVE">Active</option><option value="DRAFT">Draft</option></select></label>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <label className="text-sm font-semibold text-text">Stock<input required min={0} type="number" value={form.quantityOnHand} onChange={(e) => setForm({ ...form, quantityOnHand: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>
@@ -518,6 +587,40 @@ export function ProductManager({
             {!imageBusy && (images ?? []).length === 0 && <p className="rounded-xl bg-black/5 p-4 text-sm text-chalk dark:bg-white/5">No images uploaded yet.</p>}
           </div>
         </Modal>
+      )}
+
+      {productToDelete && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-surface p-6 shadow-2xl">
+            <div className="flex items-center gap-4 text-red-500">
+              <div className="rounded-full bg-red-500/10 p-3">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="font-display text-xl font-bold">Delete Product</h3>
+            </div>
+            <p className="mt-4 text-sm text-chalk">
+              Are you sure you want to delete this product? This action will delete the product permanently and it will no longer be visible to customers.
+            </p>
+            <div className="mt-8 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setProductToDelete(null)}
+                className="rounded-xl px-4 py-2.5 text-sm font-semibold text-chalk transition hover:bg-black/5 hover:text-text dark:hover:bg-white/5"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDelete()}
+                className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-600 disabled:opacity-50"
+                disabled={saving}
+              >
+                {saving ? "Deleting..." : "Delete Product"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
