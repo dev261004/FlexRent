@@ -32,9 +32,25 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   MAIL_FROM: z.string().default("FlexRent <no-reply@flexrent.local>"),
+  CLOUDINARY_CLOUD_NAME: z.string({ required_error: "Cloudinary cloud name is missing in .env" }).min(1),
+  CLOUDINARY_API_KEY: z.string({ required_error: "Cloudinary API key is missing in .env" }).min(1),
+  CLOUDINARY_API_SECRET: z.string({ required_error: "Cloudinary API secret is missing in .env" }).min(1),
 });
 
-const parsedEnv = envSchema.parse(process.env);
+let parsedEnv: z.infer<typeof envSchema>;
+
+try {
+  parsedEnv = envSchema.parse(process.env);
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error("❌ Invalid environment variables:");
+    error.issues.forEach((issue) => {
+      console.error(`  - ${issue.path.join(".")}: ${issue.message}`);
+    });
+    process.exit(1);
+  }
+  throw error;
+}
 
 export const env = {
   ...parsedEnv,

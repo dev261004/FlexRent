@@ -8,8 +8,7 @@ const idSchema = z
 export const productImageParamsSchema = z
   .object({
     productId: idSchema,
-  })
-  .strict();
+  });
 
 export const imageIdParamsSchema = z
   .object({
@@ -21,7 +20,8 @@ export const uploadProductImagesBodySchema = z
   .object({
     altText: z.string().trim().max(200).optional(),
   })
-  .strict();
+  .optional()
+  .default({});
 
 export const reorderProductImagesSchema = z
   .object({

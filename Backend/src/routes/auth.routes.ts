@@ -297,4 +297,39 @@ router.get("/me", verifyJWT, me);
  */
 router.put("/profile", verifyJWT, updateProfile);
 
+/**
+ * @swagger
+ * /api/auth/profile-image:
+ *   post:
+ *     summary: Upload profile image
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - image
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Profile image uploaded successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
+router.post(
+  "/profile-image",
+  verifyJWT,
+  require("../middleware/profile-image-upload.middleware").profileImageUpload.single("image"),
+  require("../controllers/auth.controller").uploadProfileImage
+);
+
 export default router;

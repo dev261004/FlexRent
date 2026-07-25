@@ -45,11 +45,11 @@ export const errorHandler: ErrorRequestHandler = (
   res,
   _next
 ) => {
-  if (error instanceof ZodError) {
+  if (error instanceof ZodError || error?.name === "ZodError") {
     res.status(400).json({
       success: false,
       message: "Validation failed",
-      errors: formatZodErrors(error),
+      errors: formatZodErrors(error as ZodError),
     });
     return;
   }

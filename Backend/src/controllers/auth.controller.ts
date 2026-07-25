@@ -464,3 +464,34 @@ export const updateProfile = asyncHandler(
     });
   }
 );
+
+export const uploadProfileImage = asyncHandler(
+  async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw new AppError(401, "Authentication is required");
+    }
+    const authUser = req.user;
+    
+    if (!req.file) {
+      throw new AppError(400, "No image provided");
+    }
+
+    // Cloudinary URL is in req.file.path
+    const profileImageUrl = req.file.path;
+
+    const user = await prisma.user.update({
+      where: { id: authUser.id },
+      data: {
+        profileImage: profileImageUrl,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Profile image uploaded successfully",
+      data: {
+        user: mapUserToPublicUser(user),
+      },
+    });
+  }
+);

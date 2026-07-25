@@ -3,10 +3,6 @@ import path from "path";
 import { ProductImage } from "@prisma/client";
 import { AppError } from "../middleware/error.middleware";
 import {
-  PRODUCT_IMAGE_UPLOAD_DIR,
-  PRODUCT_IMAGE_UPLOAD_URL_PREFIX,
-} from "../middleware/product-image-upload.middleware";
-import {
   ProductForImageAccess,
   productImageRepository,
 } from "../repositories/product-image.repository";
@@ -45,7 +41,7 @@ export class ProductImageService {
         await productImageRepository.createMany(
           files.map((file, index) => ({
             productId,
-            url: this.toPublicImagePath(file.filename),
+            url: this.toPublicImagePath(file.path),
             altText: altText ?? null,
             isPrimary: firstProductImage && index === 0,
             sortOrder: startSortOrder + index,
@@ -197,28 +193,45 @@ export class ProductImageService {
   }
 
   private toPublicImagePath(filename: string): string {
-    return `${PRODUCT_IMAGE_UPLOAD_URL_PREFIX}/${filename}`;
+    return filename; // For Cloudinary, the file path is the URL stored in the DB
   }
 
   private async deleteUploadedFiles(
     files: Express.Multer.File[]
   ): Promise<void> {
-    await Promise.all(files.map((file) => this.unlinkIfExists(file.path)));
-  }
-
-  private async deletePhysicalFile(imageUrl: string): Promise<void> {
-    const filename = path.basename(imageUrl);
-    const filePath = path.join(PRODUCT_IMAGE_UPLOAD_DIR, filename);
-    await this.unlinkIfExists(filePath);
-  }
-
-  private async unlinkIfExists(filePath: string): Promise<void> {
-    try {
-      await fs.unlink(filePath);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        throw error;
+    // With Cloudinary, if we need to clean up uploaded files on error, we delete them from Cloudinary using their public_id.
+    // multer-storage-cloudinary adds `filename` (which is the public_id).
+    for (const file of files) {
+      if (file.filename) {
+        await this.deletePhysicalFile(file.filename);
       }
+    }
+  }
+
+  private async deletePhysicalFile(imageUrlOrPublicId: string): Promise<void> {
+    try {
+      let publicId = imageUrlOrPublicId;
+      // If it's a full URL, extract the public ID (this is a simple extraction, depending on the format)
+      // Usually, multer-storage-cloudinary returns the full URL in `file.path` and the public ID in `file.filename`.
+      // The DB stores `file.path` which is the URL. We can extract public ID from the URL or store the public ID.
+      // Assuming imageUrlOrPublicId is the URL:
+      if (imageUrlOrPublicId.includes("cloudinary.com")) {
+        const parts = imageUrlOrPublicId.split("/");
+        const lastPart = parts.pop() || "";
+        const idWithoutExtension = lastPart.split(".")[0];
+        // If it includes the folder:
+        const folderIndex = parts.indexOf("flexrent");
+        if (folderIndex !== -1) {
+          publicId = parts.slice(folderIndex).join("/") + "/" + idWithoutExtension;
+        } else {
+          publicId = idWithoutExtension;
+        }
+      }
+      
+      const cloudinary = require("cloudinary").v2;
+      await cloudinary.uploader.destroy(publicId);
+    } catch (error) {
+      console.error("Failed to delete image from Cloudinary:", error);
     }
   }
 
