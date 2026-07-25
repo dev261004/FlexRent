@@ -1,9 +1,9 @@
 "use client";
 
-import { Camera, Check, Briefcase, UserRound, Store, Plus, Trash } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Camera, Check, Briefcase, UserRound, Store, Plus, Trash, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateProfile, updatePickupSettings } from "@/features/customer/api";
+import { updateProfile, updatePickupSettings, uploadProfileImage } from "@/features/customer/api";
 import { Panel } from "@/components/admin/Panel";
 import { Combobox } from "@/components/ui/Combobox";
 import { PRODUCT_CATEGORIES } from "@/features/auth/data/productCategories";
@@ -14,10 +14,12 @@ export default function VendorProfilePage() {
   const [lastName, setLastName] = useState(user?.lastName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [image, setImage] = useState(user?.profileImage ?? "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [companyName, setCompanyName] = useState(user?.companyName ?? "");
   const [gstNumber, setGstNumber] = useState(user?.gstNumber ?? "");
   const [category, setCategory] = useState(user?.productCategory ?? "");
   const [upiId, setUpiId] = useState(user?.upiId ?? "");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Vendor Pickup Settings
   const [wantsPickup, setWantsPickup] = useState(user?.supportsStorePickup ?? false);
@@ -84,11 +86,25 @@ export default function VendorProfilePage() {
     )
   );
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      setImage(URL.createObjectURL(file));
+    }
+  };
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!allFilled || !pickupValid) return;
     setPending(true);
     try {
+      let updatedUser = user;
+      
+      if (imageFile) {
+        updatedUser = await uploadProfileImage(imageFile);
+      }
+
       const updated = await updateProfile({
         firstName,
         lastName,
@@ -97,7 +113,7 @@ export default function VendorProfilePage() {
         gstNumber,
         productCategory: category,
         upiId,
-        profileImage: image || null,
+        profileImage: imageFile ? updatedUser.profileImage : (image || null),
       });
       
       const pickupUpdatedRes = await updatePickupSettings(
@@ -149,16 +165,23 @@ export default function VendorProfilePage() {
             </div>
             <h2 className="mt-4 font-display text-xl font-bold text-text">{companyName || user.fullName}</h2>
             <p className="mt-1 text-sm text-chalk">{user.email}</p>
-            <label className="mt-6 w-full text-left text-sm font-semibold text-text">
-              Profile photo URL
+            <div className="mt-6 flex w-full flex-col gap-2">
               <input
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                placeholder="https://…"
-                className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm font-normal text-text outline-none focus:border-accent"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleImageSelect}
               />
-            </label>
-            <p className="mt-2 text-left text-xs leading-5 text-chalk">Paste an image URL to update your business logo or photo.</p>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text hover:bg-white/5"
+              >
+                Choose Photo
+              </button>
+              <p className="text-left text-xs leading-5 text-chalk">Upload a new business logo or photo. JPG, PNG, WEBP.</p>
+            </div>
           </div>
         </Panel>
 
@@ -251,7 +274,7 @@ export default function VendorProfilePage() {
                       >
                         <Plus size={14} /> Add Address
                       </button>
-                      <span className="text-chalk text-xl leading-none">{isAddressesOpen ? "−" : "+"}</span>
+                      {isAddressesOpen ? <ChevronUp size={18} className="text-chalk shrink-0" /> : <ChevronDown size={18} className="text-chalk shrink-0" />}
                     </div>
                   </div>
                   {isAddressesOpen && (
@@ -286,7 +309,7 @@ export default function VendorProfilePage() {
                 <div className="rounded-xl border border-border bg-surface overflow-hidden">
                   <div className="flex items-center justify-between p-4 bg-surface hover:bg-white/5 cursor-pointer" onClick={() => setIsTimingsOpen(!isTimingsOpen)}>
                     <h3 className="font-semibold text-text text-sm">Store Timings</h3>
-                    <span className="text-chalk text-xl leading-none">{isTimingsOpen ? "−" : "+"}</span>
+                    {isTimingsOpen ? <ChevronUp size={18} className="text-chalk shrink-0" /> : <ChevronDown size={18} className="text-chalk shrink-0" />}
                   </div>
                   {isTimingsOpen && (
                     <div className="p-4 border-t border-border bg-surface-raised grid gap-3">

@@ -98,3 +98,14 @@ export async function updateProfile(input: Record<string, string | null>) {
   const response = await api.put("/auth/profile", input);
   return response.data.data.user;
 }
+
+export async function uploadProfileImage(file: File) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await api.post("/auth/profile-image", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data.data.user;
+}

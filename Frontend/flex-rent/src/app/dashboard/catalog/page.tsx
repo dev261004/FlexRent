@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, MapPin, PackageSearch, Search, ShoppingBag, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, MapPin, PackageSearch, Search, ShoppingBag, X, ChevronDown, ChevronUp } from "lucide-react";
 import { createBooking, getProducts, type Product } from "@/features/customer/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Panel } from "@/components/admin/Panel";
@@ -206,7 +206,7 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
                       className="flex w-full items-center justify-between p-4 text-left hover:bg-white/5"
                     >
                       <h4 className="text-xs font-bold uppercase tracking-wider text-chalk">Store Timings</h4>
-                      <span className="text-chalk text-xl leading-none">{isTimingsOpen ? "−" : "+"}</span>
+                      {isTimingsOpen ? <ChevronUp size={16} className="text-chalk shrink-0" /> : <ChevronDown size={16} className="text-chalk shrink-0" />}
                     </button>
                     {isTimingsOpen && (
                       <div className="grid gap-1 px-4 pb-4 text-sm text-text">

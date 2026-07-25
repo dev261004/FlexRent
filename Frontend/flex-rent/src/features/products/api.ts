@@ -105,7 +105,11 @@ export async function uploadProductImages(productId: string, files: File[]) {
   const formData = new FormData();
   files.forEach((file) => formData.append("images", file));
 
-  const response = await api.post(`/products/${productId}/images`, formData);
+  const response = await api.post(`/products/${productId}/images`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 
   return response.data.data.images as ProductImage[];
 }

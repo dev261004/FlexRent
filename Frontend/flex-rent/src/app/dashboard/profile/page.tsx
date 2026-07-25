@@ -1,9 +1,9 @@
 "use client";
 
 import { Camera, Check, MapPin, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateProfile } from "@/features/customer/api";
+import { updateProfile, uploadProfileImage } from "@/features/customer/api";
 import { Panel } from "@/components/admin/Panel";
 
 export default function ProfilePage() {
@@ -12,6 +12,8 @@ export default function ProfilePage() {
   const [lastName, setLastName] = useState(user?.lastName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [image, setImage] = useState(user?.profileImage ?? "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [addresses, setAddresses] = useState<string[]>([]);
   const [newAddress, setNewAddress] = useState("");
 
@@ -50,16 +52,30 @@ export default function ProfilePage() {
     phone.length === 10
   );
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      setImage(URL.createObjectURL(file));
+    }
+  };
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!allFilled) return;
     setPending(true);
     try {
+      let updatedUser = user;
+      
+      if (imageFile) {
+        updatedUser = await uploadProfileImage(imageFile);
+      }
+
       const updated = await updateProfile({
         firstName,
         lastName,
         phone,
-        profileImage: image || null,
+        profileImage: imageFile ? updatedUser.profileImage : (image || null),
       });
       
       let pickupUpdated = null;
@@ -121,16 +137,23 @@ export default function ProfilePage() {
             </div>
             <h2 className="mt-4 font-display text-xl font-bold text-text">{user.fullName}</h2>
             <p className="mt-1 text-sm text-chalk">{user.email}</p>
-            <label className="mt-6 w-full text-left text-sm font-semibold text-text">
-              Profile photo URL
+            <div className="mt-6 flex w-full flex-col gap-2">
               <input
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                placeholder="https://…"
-                className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm font-normal text-text"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleImageSelect}
               />
-            </label>
-            <p className="mt-2 text-left text-xs leading-5 text-chalk">Paste an image URL to update your profile photo.</p>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text hover:bg-white/5"
+              >
+                Choose Photo
+              </button>
+              <p className="text-left text-xs leading-5 text-chalk">Upload a new profile photo. JPG, PNG, WEBP.</p>
+            </div>
           </div>
         </Panel>
         <div className="space-y-6">
