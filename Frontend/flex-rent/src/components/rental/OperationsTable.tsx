@@ -43,13 +43,13 @@ export function OperationsTable() {
     setError("");
     try {
       const result = await fn();
-      if (result && typeof result === "object" && "id" in result) {
+      if (result && typeof result === "object" && "id" in result && "rentalNumber" in result) {
         replaceOrder(result as RentalOrder);
       } else {
         load();
       }
-    } catch {
-      setError(`Unable to ${action} this order.`);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || `Unable to ${action} this order.`);
     } finally {
       setBusy(null);
     }

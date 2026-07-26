@@ -35,11 +35,15 @@ import {
   setPrimaryProductImage,
   updateProduct,
   uploadProductImages,
+  getProductRentalConfig,
+  saveProductRentalConfig,
+  listRentalPeriods,
   type Category,
   type Product,
   type ProductPayload,
   type ProductStatus,
   type ProductType,
+  type RentalPeriod,
 } from "@/features/products/api";
 
 type ProductForm = {
@@ -52,6 +56,9 @@ type ProductForm = {
   salesPrice: string;
   costPrice: string;
   categoryId: string;
+  depositType: "FIXED" | "PERCENTAGE";
+  securityDeposit: string;
+  rentalPeriodId: string;
 };
 
 const initialForm: ProductForm = {
@@ -64,6 +71,9 @@ const initialForm: ProductForm = {
   salesPrice: "",
   costPrice: "",
   categoryId: "",
+  depositType: "FIXED",
+  securityDeposit: "0",
+  rentalPeriodId: "",
 };
 
 const fallbackImage =
@@ -86,6 +96,7 @@ export function ProductManager({
 }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [rentalPeriods, setRentalPeriods] = useState<RentalPeriod[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ProductStatus | "">("");
@@ -125,6 +136,7 @@ export function ProductManager({
 
   useEffect(() => {
     listCategories().then(setCategories).catch(() => setCategories([]));
+    listRentalPeriods().then(setRentalPeriods).catch(() => setRentalPeriods([]));
   }, []);
 
   const action = (
@@ -145,6 +157,8 @@ export function ProductManager({
       const product = await getProduct(productId);
       setEditingProduct(product);
       setProductImageFiles([]);
+      const config = await getProductRentalConfig(productId);
+      
       setForm({
         name: product.name,
         sku: product.sku ?? "",
@@ -155,6 +169,9 @@ export function ProductManager({
         salesPrice: String(product.salesPrice),
         costPrice: product.costPrice ?? "",
         categoryId: product.categoryId ?? "",
+        depositType: config?.depositType ?? "FIXED",
+        securityDeposit: config?.securityDeposit ? String(config.securityDeposit) : "0",
+        rentalPeriodId: config?.rentalPeriodId ?? "",
       });
       setFormOpen(true);
     } catch (err) {
@@ -183,12 +200,31 @@ export function ProductManager({
         if (productImageFiles.length > 0) {
           await uploadProductImages(savedProduct.id, productImageFiles);
         }
+        
+        const existingConfig = await getProductRentalConfig(savedProduct.id);
+        if (form.rentalPeriodId) {
+          await saveProductRentalConfig(savedProduct.id, {
+            rentalPeriodId: form.rentalPeriodId,
+            depositType: form.depositType,
+            securityDeposit: Number(form.securityDeposit),
+          }, !!existingConfig);
+        }
+        
         toast.success("Product updated successfully.");
       } else {
         savedProduct = await createProduct(payload);
         if (productImageFiles.length > 0) {
           await uploadProductImages(savedProduct.id, productImageFiles);
         }
+        
+        if (form.rentalPeriodId && (form.securityDeposit !== "0" || form.depositType !== "FIXED")) {
+          await saveProductRentalConfig(savedProduct.id, {
+            rentalPeriodId: form.rentalPeriodId,
+            depositType: form.depositType,
+            securityDeposit: Number(form.securityDeposit),
+          }, false);
+        }
+        
         toast.success("Product created successfully.");
       }
       setFormOpen(false);
@@ -488,6 +524,36 @@ export function ProductManager({
               <label className="text-sm font-semibold text-text">Sales price<input required min={11} step="0.01" type="number" value={form.salesPrice} onChange={(e) => setForm({ ...form, salesPrice: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>
               <label className="text-sm font-semibold text-text">Cost price<input min={11} step="0.01" type="number" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" /></label>
             </div>
+            
+            <div className="rounded-xl border border-dashed border-border bg-black/[0.02] p-4 dark:bg-white/[0.02]">
+              <div className="mb-4">
+                <p className="text-sm font-semibold text-text">Pricing & Rental Configuration</p>
+                <p className="mt-1 text-xs text-chalk">Set the base rental period and the security deposit requirements.</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="text-sm font-semibold text-text">
+                  Rental Period
+                  <select value={form.rentalPeriodId} onChange={(e) => setForm({ ...form, rentalPeriodId: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text">
+                    <option value="">Select a period (Required for deposit)</option>
+                    {rentalPeriods.map((rp) => (
+                      <option key={rp.id} value={rp.id}>{rp.name} ({rp.duration} {rp.unit})</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm font-semibold text-text">
+                  Deposit Type
+                  <select value={form.depositType} onChange={(e) => setForm({ ...form, depositType: e.target.value as "FIXED" | "PERCENTAGE" })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text">
+                    <option value="FIXED">Fixed Amount (₹)</option>
+                    <option value="PERCENTAGE">Percentage (%)</option>
+                  </select>
+                </label>
+                <label className="text-sm font-semibold text-text">
+                  Security Deposit
+                  <input min={0} step={form.depositType === "PERCENTAGE" ? "1" : "0.01"} type="number" value={form.securityDeposit} onChange={(e) => setForm({ ...form, securityDeposit: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" placeholder={form.depositType === "FIXED" ? "e.g., 500" : "e.g., 10"} />
+                </label>
+              </div>
+            </div>
+
             <div className="rounded-xl border border-dashed border-border bg-black/[0.02] p-4 dark:bg-white/[0.02]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>

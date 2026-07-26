@@ -39,6 +39,22 @@ export type Category = {
   description: string | null;
 };
 
+export type RentalPeriod = {
+  id: string;
+  name: string;
+  unit: string;
+  duration: number;
+  isDefault: boolean;
+};
+
+export type ProductRentalConfig = {
+  id: string;
+  productId: string;
+  rentalPeriodId: string;
+  depositType: "FIXED" | "PERCENTAGE";
+  securityDeposit: string | number;
+};
+
 export type ProductPayload = {
   name: string;
   sku?: string | null;
@@ -127,6 +143,31 @@ export async function setPrimaryProductImage(imageId: string) {
 export async function deleteProductImage(imageId: string) {
   const response = await api.delete(`/products/images/${imageId}`);
   return response.data.data.image as ProductImage;
+}
+
+export async function getProductRentalConfig(productId: string) {
+  try {
+    const response = await api.get(`/products/${productId}/rental-config`);
+    return response.data.data.rentalConfig as ProductRentalConfig;
+  } catch (err: any) {
+    if (err.response?.status === 404) return null;
+    throw err;
+  }
+}
+
+export async function saveProductRentalConfig(productId: string, payload: any, isUpdate: boolean) {
+  if (isUpdate) {
+    const response = await api.patch(`/products/${productId}/rental-config`, payload);
+    return response.data.data.rentalConfig as ProductRentalConfig;
+  } else {
+    const response = await api.post(`/products/${productId}/rental-config`, payload);
+    return response.data.data.rentalConfig as ProductRentalConfig;
+  }
+}
+
+export async function listRentalPeriods() {
+  const response = await api.get("/rental-periods");
+  return response.data.data.rentalPeriods as RentalPeriod[];
 }
 
 function cleanPayload(payload: ProductPayload) {

@@ -17,6 +17,7 @@ import priceListRoutes from "./routes/price-list.routes";
 import productAttributeRoutes from "./routes/product-attribute.routes";
 import productRoutes from "./routes/product.routes";
 import rentalOrderRoutes from "./routes/rental-order.routes";
+import rentalPeriodRoutes from "./routes/rental-period.routes";
 import vendorRoutes from "./routes/vendor.routes";
 
 export const app = express();
@@ -56,6 +57,8 @@ app.use("/api/products", productRoutes);
 app.use("/products", productRoutes);
 app.use("/api/rental-orders", rentalOrderRoutes);
 app.use("/rental-orders", rentalOrderRoutes);
+app.use("/api/rental-periods", rentalPeriodRoutes);
+app.use("/rental-periods", rentalPeriodRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/vendors", vendorRoutes);
 
