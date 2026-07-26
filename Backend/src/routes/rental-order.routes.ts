@@ -19,6 +19,7 @@ import {
   submitPayment,
   updateRentalOrder,
   verifyPayment,
+  previewRentalOrder,
 } from "../controllers/rental-order.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
 
@@ -197,6 +198,26 @@ router.use(verifyJWT);
  *         description: Rental order created successfully
  */
 router.post("/", requireRole(["ADMIN", "VENDOR", "CUSTOMER"]), createRentalOrder);
+
+/**
+ * @swagger
+ * /api/rental-orders/preview:
+ *   post:
+ *     summary: Preview rental order totals (does not create order)
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RentalOrderInput'
+ *     responses:
+ *       200:
+ *         description: Rental order preview calculated successfully
+ */
+router.post("/preview", requireRole(["ADMIN", "VENDOR", "CUSTOMER"]), previewRentalOrder);
 
 /**
  * @swagger

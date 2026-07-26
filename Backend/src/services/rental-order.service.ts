@@ -9,6 +9,7 @@ import {
   CreateRentalOrderInput,
   ListRentalOrdersQuery,
   UpdateRentalOrderInput,
+  PreviewRentalOrderInput,
 } from "../validations/rental-order.validation";
 import { AddressInput } from "../validations/vendor.validation";
 import {
@@ -122,6 +123,34 @@ export class RentalOrderService {
 
       return this.mapRentalOrder(order);
     });
+  }
+
+  async previewRentalOrder(payload: PreviewRentalOrderInput, user: ProductRequester) {
+    this.assertDateRange(payload.rentalStart, payload.rentalEnd);
+
+    const calculatedItems = await this.buildCalculatedItems(
+      payload.items,
+      payload.vendorId,
+      payload.rentalStart,
+      payload.rentalEnd,
+      user
+    );
+
+    const totals = this.calculateTotals(calculatedItems);
+
+    return {
+      subtotal: decimalToString(totals.subtotal),
+      securityDepositAmount: decimalToString(totals.securityDeposit),
+      lateFee: decimalToString(0), // No late fee on preview
+      grandTotal: decimalToString(totals.grandTotal),
+      items: calculatedItems.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        rentalPrice: decimalToString(item.rentalPrice),
+        deposit: decimalToString(item.deposit),
+        subtotal: decimalToString(item.subtotal),
+      })),
+    };
   }
 
   async getRentalOrders(query: ListRentalOrdersQuery, user: ProductRequester) {

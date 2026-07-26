@@ -20,6 +20,7 @@ import {
   listRentalOrdersQuerySchema,
   rentalOrderParamsSchema,
   updateRentalOrderSchema,
+  previewRentalOrderSchema,
 } from "../validations/rental-order.validation";
 import {
   acceptRentalOrderSchema,
@@ -45,6 +46,20 @@ export const createRentalOrder = asyncHandler(
       success: true,
       message: "Rental order created successfully",
       data: { rentalOrder },
+    });
+  }
+);
+
+export const previewRentalOrder = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const payload = previewRentalOrderSchema.parse(req.body);
+    const preview = await rentalOrderService.previewRentalOrder(payload, user);
+
+    res.status(200).json({
+      success: true,
+      message: "Rental order preview calculated successfully",
+      data: { preview },
     });
   }
 );

@@ -78,31 +78,10 @@ export default function ProfilePage() {
         profileImage: imageFile ? updatedUser.profileImage : (image || null),
       });
       
-      let pickupUpdated = null;
-      if (user.role === "VENDOR") {
-        pickupUpdated = await updatePickupSettings(wantsPickup, wantsPickup ? {
-          addressLine1: pickupAddress.line1,
-          addressLine2: pickupAddress.line2 || undefined,
-          city: pickupAddress.city,
-          state: pickupAddress.state,
-          postalCode: pickupAddress.zip,
-          country: pickupAddress.country,
-        } : undefined);
-      }
-
       if (token) {
         login(token, {
           ...user,
           ...updated,
-          ...(pickupUpdated ? {
-            supportsStorePickup: pickupUpdated.supportsStorePickup,
-            pickupAddressLine1: pickupUpdated.pickupAddressLine1,
-            pickupAddressLine2: pickupUpdated.pickupAddressLine2,
-            pickupCity: pickupUpdated.pickupCity,
-            pickupState: pickupUpdated.pickupState,
-            pickupPostalCode: pickupUpdated.pickupPostalCode,
-            pickupCountry: pickupUpdated.pickupCountry,
-          } : {}),
           fullName: `${firstName} ${lastName}`.trim(),
         });
       }

@@ -140,3 +140,18 @@ export const listRentalOrdersQuerySchema = z
 export type CreateRentalOrderInput = z.infer<typeof createRentalOrderSchema>;
 export type UpdateRentalOrderInput = z.infer<typeof updateRentalOrderSchema>;
 export type ListRentalOrdersQuery = z.infer<typeof listRentalOrdersQuerySchema>;
+
+export const previewRentalOrderSchema = z
+  .object({
+    vendorId: idSchema,
+    rentalStart: requiredDate("Rental start"),
+    rentalEnd: requiredDate("Rental end"),
+    items: z
+      .array(rentalOrderItemSchema)
+      .min(1, "At least one item is required")
+      .max(50, "You can add up to 50 rental items"),
+  })
+  .strict()
+  .superRefine(validateRentalDates);
+
+export type PreviewRentalOrderInput = z.infer<typeof previewRentalOrderSchema>;

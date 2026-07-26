@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Ban, CheckCircle2, RotateCcw, Truck, WalletCards } from "lucide-react";
 import { getOrders, markOrderPickedUp, markOrderReturned, type RentalOrder } from "@/features/customer/api";
 import { acceptOrder, rejectOrder, rejectPayment, verifyPayment } from "@/features/rentals/api";
@@ -87,7 +88,9 @@ export function OperationsTable() {
               <tr><td colSpan={8} className="p-10 text-center text-chalk">No active customer bookings yet.</td></tr>
             ) : actionable.map((order) => (
               <tr key={order.id} className="border-t border-border/60">
-                <td className="px-5 py-4 font-mono text-xs font-bold text-text">{order.rentalNumber}</td>
+                <td className="px-5 py-4 font-mono text-xs font-bold text-accent hover:underline">
+                  <Link href={`/vendor/operations/${order.id}`}>{order.rentalNumber}</Link>
+                </td>
                 <td className="px-5 py-4 text-text">{order.customer?.fullName ?? ([order.customer?.firstName, order.customer?.lastName].filter(Boolean).join(" ") || "Customer")}</td>
                 <td className="px-5 py-4 text-text">{order.items.map((item) => item.product.name).join(", ")}</td>
                 <td className="px-5 py-4 text-chalk">{new Date(order.rentalStart).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - {new Date(order.rentalEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>

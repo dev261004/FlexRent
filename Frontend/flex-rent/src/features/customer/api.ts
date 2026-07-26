@@ -5,15 +5,17 @@ export type Product = {
   quantityOnHand: number; category: { id: string; name: string } | null;
   primaryImage: { url: string; altText?: string | null } | null;
   vendor: { id: string; fullName: string; companyName?: string | null } | null;
+  rentalConfig?: { depositType: string; securityDeposit: string } | null;
 };
 
 export type RentalOrder = {
   id: string; rentalNumber: string; status: string; paymentStatus: string;
-  customerId?: string; vendorId?: string; approvedAt?: string | null;
+  customerId?: string; vendorId?: string; approvedAt?: string | null; createdAt?: string;
   actualPickupAt?: string | null; actualReturnAt?: string | null;
   rejectedAt?: string | null; rejectionReason?: string | null; notes?: string | null;
   rentalStart: string; rentalEnd: string; grandTotal: string; subtotal: string;
   securityDepositAmount: string; lateFee?: string;
+  securityDeposit?: { id: string; amount: string; refundedAmount: string; deductedAmount: string; status: string; collectedAt?: string | null; refundedAt?: string | null } | null;
   fulfillmentMethod?: string;
   deliveryAddress?: {
     addressLine1?: string | null;
@@ -108,4 +110,15 @@ export async function uploadProfileImage(file: File) {
     },
   });
   return response.data.data.user;
+}
+
+export async function previewBooking(payload: { vendorId: string; rentalStart: string; rentalEnd: string; items: { productId: string; quantity: number }[] }) {
+  const response = await api.post("/rental-orders/preview", payload);
+  return response.data.data.preview as {
+    subtotal: string;
+    securityDepositAmount: string;
+    lateFee: string;
+    grandTotal: string;
+    items: any[];
+  };
 }

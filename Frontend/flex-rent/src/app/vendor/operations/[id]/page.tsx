@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Check, CheckCircle2, ChevronRight, Clipboard, ExternalLink, MapPin, QrCode, Store, Truck, UserRound } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, ChevronRight, MapPin, Store, Truck, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getOrder, type RentalOrder } from "@/features/customer/api";
-import { getPaymentQR, getTimeline, submitUpiPayment, type PaymentQR } from "@/features/rentals/api";
+import { getTimeline } from "@/features/rentals/api";
 
 const money = (value?: string | number | null) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value ?? 0));
@@ -26,8 +26,7 @@ const steps = [
   { key: "RETURNED", label: "Returned" },
 ];
 
-const getQrCodeUrl = (upiLink: string) =>
-  `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(upiLink)}`;
+
 
 const parseBookingNotes = (notes?: string | null) => {
   const text = notes ?? "";
@@ -77,18 +76,12 @@ const formatStepDate = (value?: string | Date | null) => {
   }
 };
 
-const canPayOrder = (order: RentalOrder) =>
-  (["CONFIRMED", "APPROVED"].includes(order.status) || Boolean(order.approvedAt)) &&
-  !["PAID", "PAYMENT_SUBMITTED"].includes(order.paymentStatus);
 
-export default function OrderDetailPage() {
+export default function VendorOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = params.id;
   const [order, setOrder] = useState<RentalOrder | null>(null);
   const [timeline, setTimeline] = useState<Array<{ label: string; status?: string; date: string | null; completed: boolean }>>([]);
-  const [qr, setQr] = useState<PaymentQR | null>(null);
-  const [utr, setUtr] = useState("");
-  const [proof, setProof] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -112,34 +105,7 @@ export default function OrderDetailPage() {
 
   useEffect(load, [orderId]);
 
-  async function openQr() {
-    if (!order) return;
-    setBusy(true);
-    setError("");
-    try {
-      setQr(await getPaymentQR(order.id));
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Could not generate UPI QR.");
-    } finally {
-      setBusy(false);
-    }
-  }
 
-  async function submitPayment() {
-    if (!order) return;
-    setBusy(true);
-    setError("");
-    try {
-      await submitUpiPayment(order.id, { transactionId: utr, paymentProof: proof || undefined });
-      setQr(null);
-      setUtr("");
-      setProof("");
-      load();
-    } catch {
-      setError("Could not submit payment. Check the UTR and try again.");
-      setBusy(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -363,21 +329,6 @@ export default function OrderDetailPage() {
                   <span className="font-semibold text-text">Total</span>
                   <span className="font-display text-lg font-bold text-text">{money(order.grandTotal)}</span>
                 </div>
-                {Number(order.paymentSummary?.outstandingBalance ?? 0) > 0 && (
-                  <div className="flex justify-between rounded-lg bg-danger-bg px-3 py-2 text-sm text-danger-text mt-2">
-                    <span className="font-medium">Amount Due</span>
-                    <span className="font-bold">{money(order.paymentSummary?.outstandingBalance ?? order.grandTotal)}</span>
-                  </div>
-                )}
-                {canPayOrder(order) && (
-                  <button 
-                    disabled={busy} 
-                    onClick={() => void openQr()} 
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-black transition hover:bg-accent/90 disabled:opacity-60"
-                  >
-                    <QrCode size={18} /> Pay Balance via UPI
-                  </button>
-                )}
               </div>
               
               {/* Payment History */}
@@ -402,43 +353,27 @@ export default function OrderDetailPage() {
         {order.securityDeposit && Number(order.securityDeposit.amount) > 0 && (
           <section>
             <div className="rounded-2xl border border-border bg-surface-raised p-6 md:p-8">
-              <h2 className="mb-6 font-display text-xl font-semibold text-text">Security Deposit {order.status === "RETURNED" ? "Settlement" : ""}</h2>
+              <h2 className="mb-6 font-display text-xl font-semibold text-text">Security Deposit</h2>
               <div className="space-y-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-chalk">Deposit Amount</span>
+                  <span className="text-chalk">Collected Amount</span>
                   <span className="font-medium text-text">{money(order.securityDeposit.amount)}</span>
                 </div>
-                {order.status === "RETURNED" && (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-chalk">Late Fee</span>
-                      <span className="font-medium text-text">{money(order.lateFee || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-chalk">Deduction</span>
-                      <span className="font-medium text-text">{money(order.securityDeposit.deductedAmount)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-chalk">Refund Amount</span>
-                      <span className="font-medium text-text">{money(order.securityDeposit.refundedAmount)}</span>
-                    </div>
-                  </>
-                )}
-                {order.status !== "RETURNED" && (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-chalk">Late Fee</span>
-                      <span className="font-medium text-text">{money(order.lateFee || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-chalk">Expected Refund</span>
-                      <span className="font-medium text-text">{money(Math.max(0, Number(order.securityDeposit.amount) - Number(order.lateFee || 0)))}</span>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-between text-sm border-t border-border/50 pt-4 mt-2">
-                  <span className="text-chalk font-semibold">Status</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-chalk">Deposit Status</span>
                   <span className="font-medium text-text">{label(order.securityDeposit.status)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-chalk">Late Fee</span>
+                  <span className="font-medium text-text">{money(order.lateFee || 0)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-chalk">Deducted Amount</span>
+                  <span className="font-medium text-text">{money(order.securityDeposit.deductedAmount)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-chalk">Refunded Amount</span>
+                  <span className="font-medium text-text">{money(order.securityDeposit.refundedAmount)}</span>
                 </div>
               </div>
             </div>
@@ -457,53 +392,6 @@ export default function OrderDetailPage() {
           </section>
         )}
       </div>
-
-      {/* UPI Payment Modal (Unchanged functionality, updated styling) */}
-      {qr && (
-        <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
-          <div className="mx-auto my-8 w-full max-w-md rounded-2xl border border-border bg-surface-raised p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-xl font-bold text-text">UPI Payment</h2>
-              <button onClick={() => setQr(null)} className="text-chalk hover:text-text">
-                <span className="sr-only">Close</span>
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            
-            <div className="mt-6 flex flex-col items-center rounded-xl bg-surface p-6 border border-border/50 text-center">
-              <div className="rounded-xl bg-white p-2">
-                <img src={getQrCodeUrl(qr.upiLink)} alt="UPI QR code" className="h-[200px] w-[200px]" />
-              </div>
-              <p className="mt-4 font-display text-2xl font-bold text-text">{money(qr.amount)}</p>
-              <p className="text-sm font-medium text-chalk">to {qr.vendorName.toLowerCase() === "string" ? "Rental partner" : qr.vendorName}</p>
-              <p className="mt-1 text-xs text-chalk/70">{qr.upiId}</p>
-              
-              <div className="mt-5 flex w-full gap-2">
-                <a href={qr.upiLink} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-3 py-2.5 text-sm font-bold text-black transition hover:bg-accent/90">
-                  <ExternalLink size={16} /> Open App
-                </a>
-                <button type="button" onClick={() => navigator.clipboard.writeText(qr.upiLink)} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface-raised px-3 py-2.5 text-sm font-bold text-text transition hover:bg-surface">
-                  <Clipboard size={16} /> Copy UPI ID
-                </button>
-              </div>
-            </div>
-            
-            <div className="mt-6 space-y-4">
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wider text-chalk">UTR / Transaction ID *</span>
-                <input value={utr} onChange={(event) => setUtr(event.target.value)} placeholder="Enter 12-digit UTR" className="mt-1.5 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text outline-none transition focus:border-accent" />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wider text-chalk">Payment Proof URL (Optional)</span>
-                <input value={proof} onChange={(event) => setProof(event.target.value)} placeholder="https://..." className="mt-1.5 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text outline-none transition focus:border-accent" />
-              </label>
-              <button disabled={utr.length < 8 || busy} onClick={() => void submitPayment()} className="mt-2 w-full rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-black transition hover:bg-accent/90 disabled:opacity-50">
-                Verify Payment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

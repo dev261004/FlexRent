@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, MapPin, PackageSearch, Search, ShoppingBag, X, ChevronDown, ChevronUp } from "lucide-react";
-import { createBooking, getProducts, type Product } from "@/features/customer/api";
+import { createBooking, getProducts, previewBooking, type Product } from "@/features/customer/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Panel } from "@/components/admin/Panel";
 
@@ -49,6 +49,30 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
       if (prefs.fulfilment) setFulfilment(prefs.fulfilment);
     } catch {}
   }, []);
+
+  const [preview, setPreview] = useState<{ subtotal: string; securityDepositAmount: string; grandTotal: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (!product.vendor) return;
+    const timer = setTimeout(async () => {
+      try {
+        setPreviewLoading(true);
+        const data = await previewBooking({
+          vendorId: product.vendor.id,
+          rentalStart: new Date(start).toISOString(),
+          rentalEnd: new Date(end).toISOString(),
+          items: [{ productId: product.id, quantity }]
+        });
+        setPreview(data);
+      } catch (err) {
+        setPreview(null);
+      } finally {
+        setPreviewLoading(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [start, end, quantity, product.id, product.vendor]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,9 +252,30 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
                 )}
               </div>
             )}
+            
+            {preview && (
+              <div className="space-y-3 rounded-xl bg-black/10 p-4 border border-border">
+                <h4 className="text-sm font-semibold text-text">Order Summary</h4>
+                <div className="flex justify-between text-sm">
+                  <span className="text-chalk">Rental Charges</span>
+                  <span className="font-medium text-text">{price(preview.subtotal)}</span>
+                </div>
+                {Number(preview.securityDepositAmount) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-chalk">Security Deposit (Refundable)</span>
+                    <span className="font-medium text-text">{price(preview.securityDepositAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-border/50 pt-3 text-base font-bold">
+                  <span className="text-text">Total Payable</span>
+                  <span className="text-accent">{price(preview.grandTotal)}</span>
+                </div>
+              </div>
+            )}
+            
             <label className="block text-sm font-semibold text-text">Payment preference<select value={payment} onChange={e=>setPayment(e.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text"><option>UPI</option><option>Card</option><option>Cash at pickup</option></select><span className="mt-1 block text-xs font-normal text-chalk">No card details are stored here. Final payment is confirmed by the vendor.</span></label>
             {error && <p className="text-sm text-red-500">{error}</p>}
-            <button disabled={pending} className="w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#1a1817] disabled:opacity-60">{pending ? "Sending booking…" : "Request rental"}</button>
+            <button disabled={pending || previewLoading} className="w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#1a1817] disabled:opacity-60">{(pending || previewLoading) ? "Calculating…" : "Request rental"}</button>
           </form>
         )}
       </div>
