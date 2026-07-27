@@ -1,5 +1,6 @@
 import { PriceRuleType } from "@prisma/client";
 import { z } from "zod";
+import { RENTAL_PERIOD_UNITS } from "./product.validation";
 
 const emptyStringToUndefined = (value: unknown): unknown => {
   if (typeof value === "string" && value.trim() === "") {
@@ -113,6 +114,8 @@ export const createPriceListRuleSchema = z
     discountPercent: optionalNullableNumber("discountPercent", 0, 100),
     fixedPrice: optionalPositiveNumber("fixedPrice"),
     minQuantity: optionalMinQuantity.default(1),
+    minDuration: optionalNullableNumber("minDuration", 1),
+    durationUnit: z.enum(RENTAL_PERIOD_UNITS).nullable().optional(),
     validFrom: optionalNullableDate,
     validTo: optionalNullableDate,
     selectable: optionalBoolean.default(true),
@@ -128,6 +131,8 @@ export const updatePriceListRuleSchema = z
     discountPercent: optionalNullableNumber("discountPercent", 0, 100),
     fixedPrice: optionalPositiveNumber("fixedPrice"),
     minQuantity: optionalMinQuantity,
+    minDuration: optionalNullableNumber("minDuration", 1),
+    durationUnit: z.enum(RENTAL_PERIOD_UNITS).nullable().optional(),
     validFrom: optionalNullableDate,
     validTo: optionalNullableDate,
     selectable: optionalBoolean,

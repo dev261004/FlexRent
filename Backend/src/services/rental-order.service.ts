@@ -143,9 +143,16 @@ export class RentalOrderService {
       securityDepositAmount: decimalToString(totals.securityDeposit),
       lateFee: decimalToString(0), // No late fee on preview
       grandTotal: decimalToString(totals.grandTotal),
-      items: calculatedItems.items.map((item) => ({
+      items: calculatedItems.items.map((item: any) => ({
         productId: item.productId,
         quantity: item.quantity,
+        duration: item.duration,
+        baseRate: decimalToString(item.baseRate),
+        baseRentalAmount: decimalToString(item.baseRentalAmount),
+        pricingRule: item.pricingRule,
+        discountPercentage: item.discountPercentage ? decimalToString(item.discountPercentage) : null,
+        discountAmount: decimalToString(item.discountAmount),
+        rentalAmount: decimalToString(item.rentalAmount),
         rentalPrice: decimalToString(item.rentalPrice),
         deposit: decimalToString(item.deposit),
         subtotal: decimalToString(item.subtotal),
@@ -952,20 +959,28 @@ export class RentalOrderService {
         excludeOrderId
       );
 
-      const periodCount = this.calculateRentalPeriods(product.rentalConfig, rentalStart, rentalEnd);
-      const basePrice = toNumber(variant?.salesPrice ?? product.salesPrice);
-      const rentalPrice = this.applyPriceRule(basePrice, item, product, priceList);
-      const subtotal = rentalPrice * item.quantity * periodCount;
-      const deposit = this.calculateDeposit(product.rentalConfig, subtotal, item.quantity);
+      const durationInfo = this.calculateRentalDurationAndValidate(product.rentalConfig, rentalStart, rentalEnd);
+      const baseRate = toNumber(product.rentalConfig?.baseRentalRate ?? variant?.salesPrice ?? product.salesPrice);
+      const baseRentalAmount = baseRate * durationInfo.value * item.quantity;
+
+      const ruleCalculation = this.applyDurationPriceRule(baseRentalAmount, item, product, priceList, durationInfo);
+      const deposit = this.calculateDeposit(product.rentalConfig, ruleCalculation.rentalAmount, item.quantity);
 
       calculatedItems.push({
         productId: item.productId,
         variantId: item.variantId ?? null,
         assetId: item.assetId ?? null,
         quantity: item.quantity,
-        rentalPrice,
+        rentalPrice: baseRate,
         deposit,
-        subtotal,
+        subtotal: ruleCalculation.rentalAmount,
+        duration: durationInfo,
+        baseRate,
+        baseRentalAmount,
+        pricingRule: ruleCalculation.rule,
+        discountPercentage: ruleCalculation.discountPercentage,
+        discountAmount: ruleCalculation.discountAmount,
+        rentalAmount: ruleCalculation.rentalAmount,
       });
     }
 
@@ -1009,23 +1024,35 @@ export class RentalOrderService {
     }
   }
 
-  private calculateRentalPeriods(config: any, rentalStart: Date, rentalEnd: Date): number {
-    if (!config?.rentalPeriod) return 1;
-
+  private calculateRentalDurationAndValidate(config: any, rentalStart: Date, rentalEnd: Date) {
     const milliseconds = rentalEnd.getTime() - rentalStart.getTime();
     const hours = milliseconds / (1000 * 60 * 60);
-    const unit = config.rentalPeriod.unit;
-    const duration = Math.max(config.rentalPeriod.duration ?? 1, 1);
-    const unitHours =
-      unit === "HOUR"
-        ? 1
-        : unit === "WEEK"
-          ? 24 * 7
-          : unit === "MONTH"
-            ? 24 * 30
-            : 24;
 
-    return Math.max(1, Math.ceil(hours / (unitHours * duration)));
+    let unit = config?.rentalRateUnit ?? config?.rentalPeriod?.unit ?? "DAY";
+    let durationMultiplier = config?.rentalPeriod?.duration ?? 1;
+
+    let unitHours = 24;
+    if (unit === "HOUR") unitHours = 1;
+    else if (unit === "WEEK") unitHours = 24 * 7;
+    else if (unit === "MONTH") unitHours = 24 * 30;
+    else if (unit === "NIGHT") unitHours = 24;
+
+    const durationValue = Math.max(1, Math.ceil(hours / (unitHours * durationMultiplier)));
+
+    const minDuration = config?.minimumRentalDuration ?? 1;
+    if (durationValue < minDuration) {
+      throw new AppError(400, `Minimum rental period for this product is ${minDuration} ${unit.toLowerCase()}(s).`);
+    }
+
+    const maxDuration = config?.maximumRentalDuration;
+    if (maxDuration && durationValue > maxDuration) {
+      throw new AppError(400, `Maximum rental period for this product is ${maxDuration} ${unit.toLowerCase()}(s).`);
+    }
+
+    return {
+      value: durationValue,
+      unit: unit,
+    };
   }
 
   private async calculateLateFee(order: RentalOrderRecord, returnedAt: Date): Promise<number> {
@@ -1061,15 +1088,16 @@ export class RentalOrderService {
     return 60 * 60 * 1000;
   }
 
-  private applyPriceRule(
-    basePrice: number,
+  private applyDurationPriceRule(
+    baseRentalAmount: number,
     item: RentalOrderItemInput,
     product: any,
-    priceList: any
-  ): number {
+    priceList: any,
+    durationInfo: { value: number; unit: string }
+  ) {
     const now = new Date();
     const rules = priceList?.rules ?? [];
-    const matchingRule = rules.find((rule: any) => {
+    const matchingRules = rules.filter((rule: any) => {
       const scopeMatches =
         rule.productId === item.productId ||
         (!rule.productId && rule.categoryId === product.categoryId) ||
@@ -1078,14 +1106,60 @@ export class RentalOrderService {
       const dateMatches =
         (!rule.validFrom || rule.validFrom <= now) && (!rule.validTo || rule.validTo >= now);
 
-      return rule.selectable && scopeMatches && quantityMatches && dateMatches;
+      const ruleMinDuration = rule.minDuration ?? 1;
+      const ruleDurationUnit = rule.durationUnit ?? "DAY";
+      const isDurationRule = rule.minDuration != null;
+      const durationMatches = durationInfo.value >= ruleMinDuration && durationInfo.unit === ruleDurationUnit;
+
+      return rule.selectable && scopeMatches && quantityMatches && dateMatches && (!isDurationRule || durationMatches);
     });
 
-    if (!matchingRule) return basePrice;
-    if (matchingRule.ruleType === "FIXED_PRICE") return toNumber(matchingRule.fixedPrice);
+    matchingRules.sort((a: any, b: any) => {
+      const aMin = a.minDuration ?? 0;
+      const bMin = b.minDuration ?? 0;
+      return bMin - aMin;
+    });
 
-    const discountPercent = toNumber(matchingRule.discountPercent);
-    return Math.max(0, basePrice - basePrice * (discountPercent / 100));
+    const rule = matchingRules[0];
+
+    if (!rule) {
+      return {
+        rule: null,
+        discountPercentage: null,
+        discountAmount: 0,
+        rentalAmount: baseRentalAmount,
+      };
+    }
+
+    if (rule.ruleType === "FIXED_PRICE") {
+      const fixedPrice = toNumber(rule.fixedPrice);
+      const rentalAmount = fixedPrice * item.quantity;
+      return {
+        rule: {
+          type: "FIXED_PRICE",
+          minimumDuration: rule.minDuration,
+          durationUnit: rule.durationUnit,
+          value: fixedPrice.toString(),
+        },
+        discountPercentage: null,
+        discountAmount: Math.max(0, baseRentalAmount - rentalAmount),
+        rentalAmount,
+      };
+    }
+
+    const discountPercent = toNumber(rule.discountPercent);
+    const discountAmount = baseRentalAmount * (discountPercent / 100);
+    return {
+      rule: {
+        type: "DISCOUNT",
+        minimumDuration: rule.minDuration,
+        durationUnit: rule.durationUnit,
+        value: discountPercent.toString(),
+      },
+      discountPercentage: discountPercent,
+      discountAmount,
+      rentalAmount: Math.max(0, baseRentalAmount - discountAmount),
+    };
   }
 
   private calculateDeposit(config: any, subtotal: number, quantity: number): number {

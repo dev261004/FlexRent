@@ -13,6 +13,7 @@ export const PRODUCT_ASSET_STATUSES = [
 ] as const;
 export const DEPOSIT_TYPES = ["FIXED", "PERCENTAGE"] as const;
 export const LATE_FEE_UNITS = ["HOUR", "DAY", "WEEK", "MONTH"] as const;
+export const RENTAL_PERIOD_UNITS = ["HOUR", "DAY", "NIGHT", "WEEK", "MONTH"] as const;
 
 const emptyStringToUndefined = (value: unknown): unknown => {
   if (typeof value === "string" && value.trim() === "") {
@@ -138,6 +139,17 @@ const optionalNonNegativeInt = (fieldName: string) =>
       .optional()
   );
 
+const optionalNullableNonNegativeInt = (fieldName: string) =>
+  z.preprocess(
+    emptyStringToNull,
+    z.coerce
+      .number({ invalid_type_error: `${fieldName} must be a number` })
+      .int(`${fieldName} must be an integer`)
+      .min(0, `${fieldName} cannot be negative`)
+      .nullable()
+      .optional()
+  );
+
 const requiredNonNegativeInt = (fieldName: string) =>
   z.preprocess(
     emptyStringToUndefined,
@@ -194,6 +206,10 @@ const productRentalConfigSchema = z
     lateFee: optionalNonNegativeMoney("Late fee"),
     gracePeriodMinutes: optionalNonNegativeInt("Grace period minutes"),
     maxLateFee: optionalNullableNonNegativeMoney("Max late fee"),
+    baseRentalRate: optionalNullableNonNegativeMoney("Base rental rate"),
+    rentalRateUnit: z.enum(RENTAL_PERIOD_UNITS).nullable().optional(),
+    minimumRentalDuration: optionalNullableNonNegativeInt("Minimum rental duration"),
+    maximumRentalDuration: optionalNullableNonNegativeInt("Maximum rental duration"),
   })
   .strict();
 

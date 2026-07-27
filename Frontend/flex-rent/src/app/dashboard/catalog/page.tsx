@@ -14,7 +14,7 @@ export default function CatalogPage() {
   useEffect(() => { const timer = setTimeout(() => { setLoading(true); getProducts(search).then(d => setProducts(d.products)).catch(() => setProducts([])).finally(() => setLoading(false)); }, 250); return () => clearTimeout(timer); }, [search]);
   const available = useMemo(() => products.filter(p => p.quantityOnHand > 0 && p.vendor), [products]);
   return <div><div className="mb-8"><p className="mb-2 text-xs font-bold uppercase tracking-[.18em] text-accent">Rental catalog</p><h1 className="font-display text-3xl font-bold text-text sm:text-4xl">Find the Rental Product.</h1><p className="mt-2 text-sm text-chalk">Available products are fetched from the FlexRent inventory.</p></div><div className="relative mb-7 max-w-xl"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-chalk" size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tools, equipment, or categories" className="w-full rounded-2xl border border-border bg-surface-raised py-3.5 pl-11 pr-4 text-sm text-text outline-none focus:border-accent"/></div>
-    {loading ? <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{[1,2,3].map(i => <div key={i} className="h-80 animate-pulse rounded-2xl bg-surface-raised"/>)}</div> : available.length === 0 ? <Panel className="p-12 text-center"><PackageSearch className="mx-auto text-accent" size={30}/><h2 className="mt-4 font-display text-xl font-bold text-text">No available products found</h2><p className="mt-2 text-sm text-chalk">Try a different search, or check back when inventory is added.</p></Panel> : <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{available.map(product => <article key={product.id} className="group overflow-hidden rounded-2xl border border-border bg-surface-raised transition hover:-translate-y-1 hover:border-accent/60"><img src={product.primaryImage?.url ?? fallback} alt={product.primaryImage?.altText ?? product.name} className="h-44 w-full object-cover"/><div className="p-5"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-accent">{product.category?.name ?? "Equipment"}</p><h2 className="mt-2 font-display text-lg font-bold text-text">{product.name}</h2></div><span className="shrink-0 rounded-lg bg-green-500/15 px-2 py-1 text-xs font-bold text-green-700 dark:text-green-300">{product.quantityOnHand} left</span></div><p className="mt-2 line-clamp-2 h-10 text-sm leading-5 text-chalk">{product.description ?? "Ready for your next project."}</p><div className="mt-5 flex items-center justify-between"><div><p className="font-display text-xl font-bold text-text">{price(product.salesPrice)}</p><p className="text-xs text-chalk">per rental period</p></div><button onClick={() => setSelected(product)} className="rounded-xl bg-accent px-3.5 py-2.5 text-sm font-bold text-[#1a1817]"><ShoppingBag size={16} className="mr-1 inline"/> Rent</button></div></div></article>)}</div>}
+    {loading ? <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{[1,2,3].map(i => <div key={i} className="h-80 animate-pulse rounded-2xl bg-surface-raised"/>)}</div> : available.length === 0 ? <Panel className="p-12 text-center"><PackageSearch className="mx-auto text-accent" size={30}/><h2 className="mt-4 font-display text-xl font-bold text-text">No available products found</h2><p className="mt-2 text-sm text-chalk">Try a different search, or check back when inventory is added.</p></Panel> : <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{available.map(product => <article key={product.id} className="group overflow-hidden rounded-2xl border border-border bg-surface-raised transition hover:-translate-y-1 hover:border-accent/60"><img src={product.primaryImage?.url ?? fallback} alt={product.primaryImage?.altText ?? product.name} className="h-44 w-full object-cover"/><div className="p-5"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-accent">{product.category?.name ?? "Equipment"}</p><h2 className="mt-2 font-display text-lg font-bold text-text">{product.name}</h2></div><span className="shrink-0 rounded-lg bg-green-500/15 px-2 py-1 text-xs font-bold text-green-700 dark:text-green-300">{product.quantityOnHand} left</span></div><p className="mt-2 line-clamp-2 h-10 text-sm leading-5 text-chalk">{product.description ?? "Ready for your next project."}</p><div className="mt-5 flex items-center justify-between"><div><p className="font-display text-xl font-bold text-text">{product.rentalConfig?.baseRentalRate ? `From ${price(product.rentalConfig.baseRentalRate)}` : price(product.salesPrice)}</p><p className="text-xs text-chalk">per {product.rentalConfig?.rentalRateUnit?.toLowerCase() ?? "rental period"}</p></div><button onClick={() => setSelected(product)} className="rounded-xl bg-accent px-3.5 py-2.5 text-sm font-bold text-[#1a1817]"><ShoppingBag size={16} className="mr-1 inline"/> Rent</button></div></div></article>)}</div>}
     {selected && user && <BookingModal product={selected} customerId={user.id} onClose={() => setSelected(null)}/>}</div>;
 }
 
@@ -50,7 +50,7 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
     } catch {}
   }, []);
 
-  const [preview, setPreview] = useState<{ subtotal: string; securityDepositAmount: string; grandTotal: string } | null>(null);
+  const [preview, setPreview] = useState<{ subtotal: string; securityDepositAmount: string; grandTotal: string; items?: any[] } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
       try {
         setPreviewLoading(true);
         const data = await previewBooking({
-          vendorId: product.vendor.id,
+          vendorId: product.vendor!.id,
           rentalStart: new Date(start).toISOString(),
           rentalEnd: new Date(end).toISOString(),
           items: [{ productId: product.id, quantity }]
@@ -119,8 +119,8 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
         notes: `Payment preference: ${payment}.`
       });
       setSuccess(order.rentalNumber);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? "Could not place your booking. Check dates and availability, then try again." : "Could not place your booking.");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Could not place your booking. Check dates and availability, then try again.");
         } finally {
       setPending(false);
     }
@@ -256,6 +256,26 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
             {preview && (
               <div className="space-y-3 rounded-xl bg-black/10 p-4 border border-border">
                 <h4 className="text-sm font-semibold text-text">Order Summary</h4>
+                
+                {preview.items?.[0] && (
+                  <div className="mb-3 space-y-1 border-b border-border/50 pb-3">
+                     <div className="flex justify-between text-sm">
+                        <span className="text-chalk">Rental Duration</span>
+                        <span className="font-medium text-text">{preview.items[0].duration?.value} {preview.items[0].duration?.unit?.toLowerCase()}(s)</span>
+                     </div>
+                     <div className="flex justify-between text-sm">
+                        <span className="text-chalk">Base Amount</span>
+                        <span className="font-medium text-text">{price(preview.items[0].baseRentalAmount)}</span>
+                     </div>
+                     {Number(preview.items[0].discountAmount) > 0 && (
+                        <div className="flex justify-between text-sm text-green-500">
+                           <span>Long-Term Savings</span>
+                           <span>-{price(preview.items[0].discountAmount)}</span>
+                        </div>
+                     )}
+                  </div>
+                )}
+                
                 <div className="flex justify-between text-sm">
                   <span className="text-chalk">Rental Charges</span>
                   <span className="font-medium text-text">{price(preview.subtotal)}</span>

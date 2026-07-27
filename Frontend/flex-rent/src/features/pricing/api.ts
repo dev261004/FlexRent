@@ -20,6 +20,8 @@ export type PriceListRule = {
   discountPercent: string | null;
   fixedPrice: string | null;
   minQuantity: number;
+  minDuration: number | null;
+  durationUnit: string | null;
   selectable: boolean;
   product?: { id: string; name: string; sku: string | null } | null;
   category?: { id: string; name: string } | null;
@@ -57,6 +59,8 @@ export async function createPriceListRule(priceListId: string, input: {
   discountPercent?: number | null;
   fixedPrice?: number | null;
   minQuantity?: number;
+  minDuration?: number | null;
+  durationUnit?: string | null;
   selectable?: boolean;
 }) {
   const response = await api.post(`/price-lists/${priceListId}/rules`, input);
