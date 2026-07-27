@@ -356,12 +356,13 @@ model ProductRentalConfig {
   lateFee               Decimal           @default(0) @db.Decimal(12, 2)
   gracePeriodMinutes    Int               @default(0)
   maxLateFee            Decimal?          @db.Decimal(12, 2)
-  baseRentalRate        Decimal?          @db.Decimal(12, 2)
   rentalRateUnit        RentalPeriodUnit?
   minimumRentalDuration Int?
-  maximumRentalDuration Int?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  maximumRentalDuration     Int?
+  minDurationUnit           RentalPeriodUnit?
+  maxDurationUnit           RentalPeriodUnit?
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
   product               Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
   rentalPeriod          RentalPeriod      @relation(fields: [rentalPeriodId], references: [id], onDelete: Restrict)
 

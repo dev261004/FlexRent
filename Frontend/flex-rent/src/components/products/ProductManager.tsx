@@ -59,10 +59,11 @@ type ProductForm = {
   depositType: "FIXED" | "PERCENTAGE";
   securityDeposit: string;
   rentalPeriodId: string;
-  baseRentalRate: string;
   rentalRateUnit: string;
   minimumRentalDuration: string;
+  minDurationUnit: string;
   maximumRentalDuration: string;
+  maxDurationUnit: string;
 };
 
 const initialForm: ProductForm = {
@@ -78,10 +79,11 @@ const initialForm: ProductForm = {
   depositType: "FIXED",
   securityDeposit: "0",
   rentalPeriodId: "",
-  baseRentalRate: "",
   rentalRateUnit: "DAY",
   minimumRentalDuration: "1",
+  minDurationUnit: "DAY",
   maximumRentalDuration: "",
+  maxDurationUnit: "DAY",
 };
 
 const fallbackImage =
@@ -180,10 +182,11 @@ export function ProductManager({
         depositType: config?.depositType ?? "FIXED",
         securityDeposit: config?.securityDeposit ? String(config.securityDeposit) : "0",
         rentalPeriodId: config?.rentalPeriodId ?? "",
-        baseRentalRate: config?.baseRentalRate ? String(config.baseRentalRate) : "",
         rentalRateUnit: config?.rentalRateUnit ?? "DAY",
         minimumRentalDuration: config?.minimumRentalDuration ? String(config.minimumRentalDuration) : "1",
+        minDurationUnit: config?.minDurationUnit ?? "DAY",
         maximumRentalDuration: config?.maximumRentalDuration ? String(config.maximumRentalDuration) : "",
+        maxDurationUnit: config?.maxDurationUnit ?? "DAY",
       });
       setFormOpen(true);
     } catch (err) {
@@ -219,10 +222,11 @@ export function ProductManager({
             rentalPeriodId: form.rentalPeriodId,
             depositType: form.depositType,
             securityDeposit: Number(form.securityDeposit),
-            baseRentalRate: form.baseRentalRate ? Number(form.baseRentalRate) : null,
             rentalRateUnit: form.rentalRateUnit,
             minimumRentalDuration: form.minimumRentalDuration ? Number(form.minimumRentalDuration) : null,
+            minDurationUnit: form.minDurationUnit,
             maximumRentalDuration: form.maximumRentalDuration ? Number(form.maximumRentalDuration) : null,
+            maxDurationUnit: form.maxDurationUnit,
           }, !!existingConfig);
         }
         
@@ -238,10 +242,11 @@ export function ProductManager({
             rentalPeriodId: form.rentalPeriodId,
             depositType: form.depositType,
             securityDeposit: Number(form.securityDeposit),
-            baseRentalRate: form.baseRentalRate ? Number(form.baseRentalRate) : null,
             rentalRateUnit: form.rentalRateUnit,
             minimumRentalDuration: form.minimumRentalDuration ? Number(form.minimumRentalDuration) : null,
+            minDurationUnit: form.minDurationUnit,
             maximumRentalDuration: form.maximumRentalDuration ? Number(form.maximumRentalDuration) : null,
+            maxDurationUnit: form.maxDurationUnit,
           }, false);
         }
         
@@ -561,10 +566,6 @@ export function ProductManager({
                   </select>
                 </label>
                 <label className="text-sm font-semibold text-text">
-                  Base Rental Rate (₹)
-                  <input type="number" step="0.01" min="0" value={form.baseRentalRate} onChange={(e) => setForm({ ...form, baseRentalRate: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" placeholder="Leaves empty to use Sales Price" />
-                </label>
-                <label className="text-sm font-semibold text-text">
                   Rate Unit
                   <select value={form.rentalRateUnit} onChange={(e) => setForm({ ...form, rentalRateUnit: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text">
                     <option value="HOUR">Hour</option>
@@ -576,11 +577,29 @@ export function ProductManager({
                 </label>
                 <label className="text-sm font-semibold text-text">
                   Min Duration
-                  <input type="number" min="1" value={form.minimumRentalDuration} onChange={(e) => setForm({ ...form, minimumRentalDuration: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" />
+                  <div className="flex gap-2">
+                    <input type="number" min="1" value={form.minimumRentalDuration} onChange={(e) => setForm({ ...form, minimumRentalDuration: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" />
+                    <select value={form.minDurationUnit} onChange={(e) => setForm({ ...form, minDurationUnit: e.target.value })} className="mt-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-text">
+                      <option value="HOUR">Hour</option>
+                      <option value="DAY">Day</option>
+                      <option value="NIGHT">Night</option>
+                      <option value="WEEK">Week</option>
+                      <option value="MONTH">Month</option>
+                    </select>
+                  </div>
                 </label>
                 <label className="text-sm font-semibold text-text">
                   Max Duration
-                  <input type="number" min="1" value={form.maximumRentalDuration} onChange={(e) => setForm({ ...form, maximumRentalDuration: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" placeholder="Optional" />
+                  <div className="flex gap-2">
+                    <input type="number" min="1" value={form.maximumRentalDuration} onChange={(e) => setForm({ ...form, maximumRentalDuration: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-text" placeholder="Optional" />
+                    <select value={form.maxDurationUnit} onChange={(e) => setForm({ ...form, maxDurationUnit: e.target.value })} className="mt-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-text">
+                      <option value="HOUR">Hour</option>
+                      <option value="DAY">Day</option>
+                      <option value="NIGHT">Night</option>
+                      <option value="WEEK">Week</option>
+                      <option value="MONTH">Month</option>
+                    </select>
+                  </div>
                 </label>
                 <label className="text-sm font-semibold text-text">
                   Deposit Type

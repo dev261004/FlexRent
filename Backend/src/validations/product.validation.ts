@@ -206,10 +206,11 @@ const productRentalConfigSchema = z
     lateFee: optionalNonNegativeMoney("Late fee"),
     gracePeriodMinutes: optionalNonNegativeInt("Grace period minutes"),
     maxLateFee: optionalNullableNonNegativeMoney("Max late fee"),
-    baseRentalRate: optionalNullableNonNegativeMoney("Base rental rate"),
-    rentalRateUnit: z.enum(RENTAL_PERIOD_UNITS).nullable().optional(),
-    minimumRentalDuration: optionalNullableNonNegativeInt("Minimum rental duration"),
-    maximumRentalDuration: optionalNullableNonNegativeInt("Maximum rental duration"),
+    rentalRateUnit: z.enum(RENTAL_PERIOD_UNITS as any).optional().nullable(),
+    minimumRentalDuration: z.number().min(1, 'Minimum duration must be at least 1').optional().nullable(),
+    maximumRentalDuration: z.number().min(1, 'Maximum duration must be at least 1').optional().nullable(),
+    minDurationUnit: z.enum(RENTAL_PERIOD_UNITS as any).optional().nullable(),
+    maxDurationUnit: z.enum(RENTAL_PERIOD_UNITS as any).optional().nullable(),
   })
   .strict();
 

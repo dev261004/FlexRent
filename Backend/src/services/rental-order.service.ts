@@ -960,7 +960,7 @@ export class RentalOrderService {
       );
 
       const durationInfo = this.calculateRentalDurationAndValidate(product.rentalConfig, rentalStart, rentalEnd);
-      const baseRate = toNumber(product.rentalConfig?.baseRentalRate ?? variant?.salesPrice ?? product.salesPrice);
+      const baseRate = toNumber(variant?.salesPrice ?? product.salesPrice);
       const baseRentalAmount = baseRate * durationInfo.value * item.quantity;
 
       const ruleCalculation = this.applyDurationPriceRule(baseRentalAmount, item, product, priceList, durationInfo);
@@ -1024,6 +1024,13 @@ export class RentalOrderService {
     }
   }
 
+  private getUnitHours(unit: string): number {
+    if (unit === "HOUR") return 1;
+    if (unit === "WEEK") return 24 * 7;
+    if (unit === "MONTH") return 24 * 30;
+    return 24; // DAY or NIGHT
+  }
+
   private calculateRentalDurationAndValidate(config: any, rentalStart: Date, rentalEnd: Date) {
     const milliseconds = rentalEnd.getTime() - rentalStart.getTime();
     const hours = milliseconds / (1000 * 60 * 60);
@@ -1031,22 +1038,24 @@ export class RentalOrderService {
     let unit = config?.rentalRateUnit ?? config?.rentalPeriod?.unit ?? "DAY";
     let durationMultiplier = config?.rentalPeriod?.duration ?? 1;
 
-    let unitHours = 24;
-    if (unit === "HOUR") unitHours = 1;
-    else if (unit === "WEEK") unitHours = 24 * 7;
-    else if (unit === "MONTH") unitHours = 24 * 30;
-    else if (unit === "NIGHT") unitHours = 24;
-
+    let unitHours = this.getUnitHours(unit);
     const durationValue = Math.max(1, Math.ceil(hours / (unitHours * durationMultiplier)));
 
     const minDuration = config?.minimumRentalDuration ?? 1;
-    if (durationValue < minDuration) {
-      throw new AppError(400, `Minimum rental period for this product is ${minDuration} ${unit.toLowerCase()}(s).`);
+    const minUnit = config?.minDurationUnit ?? unit;
+    const minDurationHours = minDuration * this.getUnitHours(minUnit);
+    
+    if (hours < minDurationHours - 0.01) {
+      throw new AppError(400, `Minimum rental period for this product is ${minDuration} ${minUnit.toLowerCase()}(s).`);
     }
 
     const maxDuration = config?.maximumRentalDuration;
-    if (maxDuration && durationValue > maxDuration) {
-      throw new AppError(400, `Maximum rental period for this product is ${maxDuration} ${unit.toLowerCase()}(s).`);
+    if (maxDuration) {
+      const maxUnit = config?.maxDurationUnit ?? unit;
+      const maxDurationHours = maxDuration * this.getUnitHours(maxUnit);
+      if (hours > maxDurationHours + 0.01) {
+        throw new AppError(400, `Maximum rental period for this product is ${maxDuration} ${maxUnit.toLowerCase()}(s).`);
+      }
     }
 
     return {

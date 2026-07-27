@@ -53,10 +53,11 @@ export type ProductRentalConfig = {
   rentalPeriodId: string;
   depositType: "FIXED" | "PERCENTAGE";
   securityDeposit: string | number;
-  baseRentalRate?: string | number | null;
   rentalRateUnit?: string | null;
   minimumRentalDuration?: number | null;
   maximumRentalDuration?: number | null;
+  minDurationUnit?: string | null;
+  maxDurationUnit?: string | null;
 };
 
 export type ProductPayload = {

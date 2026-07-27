@@ -5,7 +5,7 @@ export type Product = {
   quantityOnHand: number; category: { id: string; name: string } | null;
   primaryImage: { url: string; altText?: string | null } | null;
   vendor: { id: string; fullName: string; companyName?: string | null } | null;
-  rentalConfig?: { depositType: string; securityDeposit: string; baseRentalRate?: string | null; rentalRateUnit?: string | null; minimumRentalDuration?: number | null; maximumRentalDuration?: number | null } | null;
+  rentalConfig?: { depositType: string; securityDeposit: string; rentalRateUnit?: string | null; minimumRentalDuration?: number | null; maximumRentalDuration?: number | null; minDurationUnit?: string | null; maxDurationUnit?: string | null } | null;
 };
 
 export type RentalOrder = {
