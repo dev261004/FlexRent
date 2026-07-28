@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Bell, Search, Sun, Moon } from "lucide-react";
+import { Search, Sun, Moon } from "lucide-react";
 import { VendorSidebar } from "@/components/vendor/VendorSidebar";
 import { useTheme } from "@/components/admin/ThemeProvider";
 import { useAuth } from "@/contexts/AuthContext";
 import { updatePickupSettings } from "@/features/customer/api";
 import { X, MapPin } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export default function VendorLayout({
   children,
@@ -103,7 +104,7 @@ export default function VendorLayout({
                 {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
               </button>
             )}
-            <button type="button" aria-label="View notifications" className="relative rounded-xl border border-border bg-surface-raised p-2.5 text-chalk transition hover:border-accent/40 hover:text-text"><Bell size={18} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent" /></button>
+            <NotificationBell basePath="/vendor" />
             {user && (
               <Link href="/vendor/profile" className="flex items-center gap-3 border-l border-border pl-4 hover:opacity-80 transition-opacity">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-black">

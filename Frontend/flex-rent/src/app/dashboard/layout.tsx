@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Bell, Moon, Search, Sun } from "lucide-react";
+import { Moon, Search, Sun } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/components/admin/ThemeProvider";
 import { CustomerSidebar } from "@/components/customer/CustomerSidebar";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export default function DashboardLayout({
   children,
@@ -52,7 +53,9 @@ export default function DashboardLayout({
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
           )}
-          <button type="button" aria-label="View notifications" className="relative hidden rounded-lg p-2 text-chalk transition hover:bg-black/5 hover:text-text dark:hover:bg-white/5 sm:block"><Bell size={18} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent" /></button>
+          <div className="hidden sm:block">
+            <NotificationBell basePath="/dashboard" />
+          </div>
 
           {user && (
             <div className="flex items-center gap-3 border-l border-border pl-3 sm:pl-4">

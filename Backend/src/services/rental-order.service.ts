@@ -24,6 +24,7 @@ import {
   SubmitUpiPaymentInput,
 } from "../validations/payment.validation";
 import { RejectRentalOrderInput } from "../validations/rental-order-workflow.validation";
+import { notificationService } from "../notifications/notification.service";
 
 type RentalOrderItemInput = CreateRentalOrderInput["items"][number];
 type RentalStatusValue =
@@ -121,7 +122,23 @@ export class RentalOrderService {
         tx
       );
 
-      return this.mapRentalOrder(order);
+      const mapped = this.mapRentalOrder(order);
+
+      // Trigger real-time notification to Vendor
+      notificationService
+        .notify({
+          userId: payload.vendorId,
+          title: "New Quotation Request",
+          message: `A new quotation request (Order #${order.rentalNumber}) has been submitted by customer (${user.email}).`,
+          type: "QUOTATION_CREATED",
+          priority: "NORMAL",
+          actionUrl: `/vendor/operations/${order.id}`,
+          data: { orderId: order.id, rentalNumber: order.rentalNumber },
+          idempotencyKey: `quotation_created_${order.id}`,
+        })
+        .catch((err) => console.error("Notification error:", err.message));
+
+      return mapped;
     });
   }
 
@@ -314,7 +331,22 @@ export class RentalOrderService {
       );
     });
 
-    return this.mapRentalOrder(updatedOrder);
+    const mapped = this.mapRentalOrder(updatedOrder);
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Rental Item Picked Up",
+        message: `Your rental order #${order.rentalNumber} has been marked as picked up.`,
+        type: "PICKUP_REMINDER",
+        priority: "HIGH",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `pickup_${order.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return mapped;
   }
 
   async returnOrder(
@@ -386,7 +418,22 @@ export class RentalOrderService {
       return returnedOrder;
     });
 
-    return this.mapRentalOrder(updatedOrder);
+    const mapped = this.mapRentalOrder(updatedOrder);
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Return Confirmed",
+        message: `The return for rental order #${order.rentalNumber} has been confirmed.`,
+        type: "RETURN_CONFIRMED",
+        priority: "NORMAL",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `return_${order.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return mapped;
   }
 
   async getTimeline(orderId: string, user: ProductRequester) {
@@ -557,6 +604,19 @@ export class RentalOrderService {
     const updatedOrder = await rentalOrderRepository.getRentalOrder(orderId);
     this.assertRuleOrderLoaded(updatedOrder);
 
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Security Deposit Refunded 🛡️",
+        message: `Your security deposit for rental order #${order.rentalNumber} has been refunded.`,
+        type: "SECURITY_DEPOSIT_REFUNDED",
+        priority: "NORMAL",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `deposit_refunded_${order.id}_${result.payment.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
     return {
       payment: this.mapPayment(result.payment),
       securityDeposit: this.mapSecurityDeposit(result.securityDeposit),
@@ -699,6 +759,19 @@ export class RentalOrderService {
       return updatedPayment;
     });
 
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Payment Received! 💳",
+        message: `Your payment for rental order #${order.rentalNumber} has been verified.`,
+        type: "PAYMENT_RECEIVED",
+        priority: "NORMAL",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `payment_verified_${order.id}_${payment.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
     return this.mapUpiPayment(verifiedPayment, order);
   }
 
@@ -729,6 +802,21 @@ export class RentalOrderService {
       await rentalOrderRepository.updatePaymentStatus(orderId, "PENDING", tx);
       return updatedPayment;
     });
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Payment Verification Failed ⚠️",
+        message: `Your UPI payment for rental order #${order.rentalNumber} was rejected by the vendor.${
+          payload.remarks ? ` Remarks: ${payload.remarks}` : ""
+        }`,
+        type: "PAYMENT_FAILED",
+        priority: "URGENT",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `payment_rejected_${order.id}_${payment.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
 
     return this.mapUpiPayment(rejectedPayment, order);
   }
@@ -1290,12 +1378,36 @@ export class RentalOrderService {
     }
   }
 
-  private notifyCustomerOrderAccepted(_order: RentalOrderRecord) {
-    // TODO: integrate email or push notification for accepted rental requests.
+  private notifyCustomerOrderAccepted(order: RentalOrderRecord) {
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Quotation Approved! 🎉",
+        message: `Your rental order #${order.rentalNumber} has been accepted by the vendor.`,
+        type: "QUOTATION_ACCEPTED",
+        priority: "NORMAL",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `quotation_accepted_${order.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
   }
 
-  private notifyCustomerOrderRejected(_order: RentalOrderRecord) {
-    // TODO: integrate email or push notification for rejected rental requests.
+  private notifyCustomerOrderRejected(order: RentalOrderRecord) {
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Quotation Rejected",
+        message: `Your rental order #${order.rentalNumber} was rejected by the vendor.${
+          order.rejectionReason ? ` Reason: ${order.rejectionReason}` : ""
+        }`,
+        type: "QUOTATION_REJECTED",
+        priority: "NORMAL",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `quotation_rejected_${order.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
   }
 
   private calculatePaymentStatus(order: RentalOrderRecord): "PENDING" | "PARTIALLY_PAID" | "PAID" {

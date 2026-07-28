@@ -109,6 +109,32 @@ enum FulfillmentMethod {
   STORE_PICKUP
 }
 
+enum NotificationType {
+  SYSTEM
+  QUOTATION_CREATED
+  QUOTATION_ACCEPTED
+  QUOTATION_REJECTED
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  PICKUP_REMINDER
+  RETURN_REMINDER
+  OVERDUE_REMINDER
+  LATE_FEE_UPDATED
+  RETURN_CONFIRMED
+  SECURITY_DEPOSIT_REFUNDED
+  EXTENSION_REQUESTED
+  EXTENSION_APPROVED
+  EXTENSION_REJECTED
+  GENERAL
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 model User {
   id                   String               @id @default(cuid())
   email                String               @unique
@@ -128,12 +154,14 @@ model User {
   storeTimings         Json?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
-  refreshTokens        RefreshToken[]
-  passwordResetTokens  PasswordResetToken[]
-  createdProducts      Product[]            @relation("ProductCreatedBy")
-  vendorProducts       Product[]            @relation("ProductVendor")
-  customerRentalOrders RentalOrder[]        @relation("RentalOrderCustomer")
-  vendorRentalOrders   RentalOrder[]        @relation("RentalOrderVendor")
+  refreshTokens          RefreshToken[]
+  passwordResetTokens    PasswordResetToken[]
+  createdProducts        Product[]            @relation("ProductCreatedBy")
+  vendorProducts         Product[]            @relation("ProductVendor")
+  customerRentalOrders   RentalOrder[]        @relation("RentalOrderCustomer")
+  vendorRentalOrders     RentalOrder[]        @relation("RentalOrderVendor")
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
 
   @@index([role])
   @@index([status])
@@ -532,4 +560,40 @@ model SecurityDeposit {
   @@index([status])
   @@index([collectedAt])
   @@index([refundedAt])
+}
+
+model Notification {
+  id             String               @id @default(cuid())
+  userId         String
+  title          String
+  message        String
+  type           NotificationType     @default(GENERAL)
+  priority       NotificationPriority @default(NORMAL)
+  data           Json?
+  actionUrl      String?
+  idempotencyKey String?              @unique
+  isRead         Boolean              @default(false)
+  readAt         DateTime?
+  isDeleted      Boolean              @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isDeleted])
+  @@index([userId, isRead, isDeleted])
+  @@index([type])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  enableInApp Boolean  @default(true)
+  enableEmail Boolean  @default(true)
+  enablePush  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

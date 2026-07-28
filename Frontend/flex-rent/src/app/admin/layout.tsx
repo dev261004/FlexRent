@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Search, Sun, Moon } from "lucide-react";
+import { Search, Sun, Moon } from "lucide-react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { useTheme } from "@/components/admin/ThemeProvider";
 import { useAuth } from "@/contexts/AuthContext";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export default function AdminLayout({
   children,
@@ -54,14 +55,7 @@ export default function AdminLayout({
                 {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
               </button>
             )}
-            <button
-              type="button"
-              aria-label="View notifications"
-              className="relative rounded-xl border border-border bg-surface-raised p-2.5 text-chalk transition hover:border-accent/40 hover:text-text"
-            >
-              <Bell size={18} />
-              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent" />
-            </button>
+            <NotificationBell basePath="/admin" />
             {user && (
               <div className="flex items-center gap-3 border-l border-border pl-4">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-black">
