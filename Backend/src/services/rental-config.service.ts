@@ -57,6 +57,11 @@ export class RentalConfigService {
           lateFee: payload.lateFee ?? 0,
           gracePeriodMinutes: payload.gracePeriodMinutes ?? 0,
           maxLateFee: payload.maxLateFee ?? null,
+          rentalRateUnit: payload.rentalRateUnit ?? null,
+          minimumRentalDuration: payload.minimumRentalDuration ?? null,
+          maximumRentalDuration: payload.maximumRentalDuration ?? null,
+          minDurationUnit: payload.minDurationUnit ?? null,
+          maxDurationUnit: payload.maxDurationUnit ?? null,
         },
         tx
       );
@@ -225,6 +230,26 @@ export class RentalConfigService {
       data.maxLateFee = payload.maxLateFee;
     }
 
+    if (payload.rentalRateUnit !== undefined) {
+      data.rentalRateUnit = payload.rentalRateUnit;
+    }
+
+    if (payload.minimumRentalDuration !== undefined) {
+      data.minimumRentalDuration = payload.minimumRentalDuration;
+    }
+
+    if (payload.maximumRentalDuration !== undefined) {
+      data.maximumRentalDuration = payload.maximumRentalDuration;
+    }
+
+    if (payload.minDurationUnit !== undefined) {
+      data.minDurationUnit = payload.minDurationUnit;
+    }
+
+    if (payload.maxDurationUnit !== undefined) {
+      data.maxDurationUnit = payload.maxDurationUnit;
+    }
+
     return data;
   }
 
@@ -250,6 +275,11 @@ export class RentalConfigService {
       lateFee: decimalToString(config.lateFee),
       gracePeriodMinutes: config.gracePeriodMinutes,
       maxLateFee: decimalToString(config.maxLateFee),
+      rentalRateUnit: config.rentalRateUnit,
+      minimumRentalDuration: config.minimumRentalDuration,
+      maximumRentalDuration: config.maximumRentalDuration,
+      minDurationUnit: config.minDurationUnit,
+      maxDurationUnit: config.maxDurationUnit,
       createdAt: config.createdAt.toISOString(),
       updatedAt: config.updatedAt.toISOString(),
     };

@@ -162,7 +162,7 @@ export async function getProductRentalConfig(productId: string) {
 
 export async function saveProductRentalConfig(productId: string, payload: any, isUpdate: boolean) {
   if (isUpdate) {
-    const response = await api.patch(`/products/${productId}/rental-config`, payload);
+    const response = await api.put(`/products/${productId}/rental-config`, payload);
     return response.data.data.rentalConfig as ProductRentalConfig;
   } else {
     const response = await api.post(`/products/${productId}/rental-config`, payload);

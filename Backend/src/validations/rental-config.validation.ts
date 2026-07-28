@@ -61,6 +61,17 @@ const nonNegativeInteger = (fieldName: string) =>
       .optional()
   );
 
+const nullableNonNegativeInteger = (fieldName: string) =>
+  z.preprocess(
+    emptyStringToNull,
+    z.coerce
+      .number({ invalid_type_error: `${fieldName} must be a number` })
+      .int(`${fieldName} must be an integer`)
+      .min(0, `${fieldName} must be greater than or equal to 0`)
+      .nullable()
+      .optional()
+  );
+
 const rentalConfigFields = {
   pickupTime: timeSchema,
   returnTime: timeSchema,
@@ -71,6 +82,11 @@ const rentalConfigFields = {
   lateFee: nonNegativeNumber("Late fee"),
   gracePeriodMinutes: nonNegativeInteger("Grace period minutes"),
   maxLateFee: nullableNonNegativeNumber("Max late fee"),
+  rentalRateUnit: z.enum(["HOUR", "DAY", "NIGHT", "WEEK", "MONTH"]).optional().nullable(),
+  minimumRentalDuration: nullableNonNegativeInteger("Minimum rental duration"),
+  maximumRentalDuration: nullableNonNegativeInteger("Maximum rental duration"),
+  minDurationUnit: z.enum(["HOUR", "DAY", "NIGHT", "WEEK", "MONTH"]).optional().nullable(),
+  maxDurationUnit: z.enum(["HOUR", "DAY", "NIGHT", "WEEK", "MONTH"]).optional().nullable(),
 };
 
 const validateMaxLateFee = (

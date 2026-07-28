@@ -126,15 +126,6 @@ export class PriceListService {
     const priceList = await priceListRepository.getPriceList(id);
     this.assertPriceListExists(priceList);
 
-    const hasRules = await priceListRepository.hasRules(id);
-
-    if (hasRules) {
-      throw new AppError(
-        409,
-        "Price list cannot be deleted because it contains price list rules."
-      );
-    }
-
     const deletedPriceList = await priceListRepository.deletePriceList(id);
     return this.mapPriceList(deletedPriceList);
   }
