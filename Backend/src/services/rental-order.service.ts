@@ -25,6 +25,7 @@ import {
 } from "../validations/payment.validation";
 import { RejectRentalOrderInput } from "../validations/rental-order-workflow.validation";
 import { notificationService } from "../notifications/notification.service";
+import { reminderService } from "../reminders/reminder.service";
 
 type RentalOrderItemInput = CreateRentalOrderInput["items"][number];
 type RentalStatusValue =
@@ -63,6 +64,16 @@ export class RentalOrderService {
       }
       return rentalOrderRepository.updateRentalOrder(orderId, { status: "CONFIRMED", paymentStatus: depositAmount > 0 ? "PARTIALLY_PAID" : order.paymentStatus, notes: this.mergeNotes(order.notes, ["Order confirmed", payload.notes ? `Confirmation notes: ${payload.notes}` : null]) }, tx);
     });
+    reminderService
+      .scheduleRentalReminders({
+        rentalOrderId: updated.id,
+        userId: updated.customerId,
+        rentalNumber: updated.rentalNumber,
+        rentalStart: updated.rentalStart,
+        rentalEnd: updated.rentalEnd,
+      })
+      .catch((err) => console.error("Reminder scheduling error:", err.message));
+
     return this.mapRentalOrder(updated);
   }
 
@@ -277,6 +288,18 @@ export class RentalOrderService {
       );
     });
 
+    if (updatedOrder.status === "CONFIRMED") {
+      reminderService
+        .rescheduleRentalReminders({
+          rentalOrderId: updatedOrder.id,
+          userId: updatedOrder.customerId,
+          rentalNumber: updatedOrder.rentalNumber,
+          rentalStart: updatedOrder.rentalStart,
+          rentalEnd: updatedOrder.rentalEnd,
+        })
+        .catch((err) => console.error("Reminder rescheduling error:", err.message));
+    }
+
     return this.mapRentalOrder(updatedOrder);
   }
 
@@ -286,6 +309,8 @@ export class RentalOrderService {
     this.assertEditable(order);
 
     const deletedOrder = await rentalOrderRepository.deleteRentalOrder(id);
+    reminderService.cancelRentalReminders(id).catch((err) => console.error("Reminder cancellation error:", err.message));
+
     return this.mapRentalOrder(deletedOrder);
   }
 
@@ -432,6 +457,8 @@ export class RentalOrderService {
         idempotencyKey: `return_${order.id}`,
       })
       .catch((err) => console.error("Notification error:", err.message));
+
+    reminderService.cancelRentalReminders(orderId).catch((err) => console.error("Reminder cancellation error:", err.message));
 
     return mapped;
   }
@@ -840,6 +867,17 @@ export class RentalOrderService {
     });
 
     this.notifyCustomerOrderAccepted(acceptedOrder);
+
+    reminderService
+      .scheduleRentalReminders({
+        rentalOrderId: acceptedOrder.id,
+        userId: acceptedOrder.customerId,
+        rentalNumber: acceptedOrder.rentalNumber,
+        rentalStart: acceptedOrder.rentalStart,
+        rentalEnd: acceptedOrder.rentalEnd,
+      })
+      .catch((err) => console.error("Reminder scheduling error:", err.message));
+
     return this.mapRentalOrder(acceptedOrder);
   }
 
@@ -862,6 +900,7 @@ export class RentalOrderService {
     });
 
     this.notifyCustomerOrderRejected(rejectedOrder);
+    reminderService.cancelRentalReminders(orderId).catch((err) => console.error("Reminder cancellation error:", err.message));
     return this.mapRentalOrder(rejectedOrder);
   }
 

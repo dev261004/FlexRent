@@ -21,6 +21,7 @@ import rentalPeriodRoutes from "./routes/rental-period.routes";
 import vendorRoutes from "./routes/vendor.routes";
 import notificationRoutes from "./notifications/notification.routes";
 import notificationTestRoutes from "./notifications/notification.test-routes";
+import reminderRoutes from "./reminders/reminder.routes";
 
 export const app = express();
 
@@ -67,6 +68,8 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/api/notifications", notificationTestRoutes);
 app.use("/notifications", notificationTestRoutes);
+app.use("/api/reminders", reminderRoutes);
+app.use("/reminders", reminderRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

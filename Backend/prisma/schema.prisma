@@ -162,6 +162,7 @@ model User {
   vendorRentalOrders     RentalOrder[]        @relation("RentalOrderVendor")
   notifications          Notification[]
   notificationPreference NotificationPreference?
+  reminderJobs           ReminderJob[]
 
   @@index([role])
   @@index([status])
@@ -488,6 +489,7 @@ model RentalOrder {
   items                 RentalOrderItem[]
   payments              RentalPayment[]
   securityDeposit       SecurityDeposit?
+  reminderJobs          ReminderJob[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -597,3 +599,34 @@ model NotificationPreference {
   updatedAt   DateTime @updatedAt
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+enum ReminderJobStatus {
+  SCHEDULED
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model ReminderJob {
+  id               String            @id @default(cuid())
+  rentalOrderId    String
+  userId           String
+  notificationType NotificationType
+  scheduledFor     DateTime
+  jobId            String            @unique
+  status           ReminderJobStatus @default(SCHEDULED)
+  sentAt           DateTime?
+  cancelledAt      DateTime?
+  errorMessage     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  rentalOrder      RentalOrder       @relation(fields: [rentalOrderId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([rentalOrderId, status])
+  @@index([userId, status])
+  @@index([scheduledFor, status])
+  @@index([status])
+}
+
