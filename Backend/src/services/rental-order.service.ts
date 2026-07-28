@@ -963,7 +963,7 @@ export class RentalOrderService {
       const baseRate = toNumber(variant?.salesPrice ?? product.salesPrice);
       const baseRentalAmount = baseRate * durationInfo.value * item.quantity;
 
-      const ruleCalculation = this.applyDurationPriceRule(baseRentalAmount, item, product, priceList, durationInfo);
+      const ruleCalculation = this.applyDurationPriceRule(baseRentalAmount, baseRate, item, product, priceList, durationInfo);
       const deposit = this.calculateDeposit(product.rentalConfig, ruleCalculation.rentalAmount, item.quantity);
 
       calculatedItems.push({
@@ -1099,6 +1099,7 @@ export class RentalOrderService {
 
   private applyDurationPriceRule(
     baseRentalAmount: number,
+    baseRate: number,
     item: RentalOrderItemInput,
     product: any,
     priceList: any,
@@ -1141,17 +1142,19 @@ export class RentalOrderService {
     }
 
     if (rule.ruleType === "FIXED_PRICE") {
-      const fixedPrice = toNumber(rule.fixedPrice);
-      const rentalAmount = fixedPrice * item.quantity;
+      const fixedDiscountAmount = toNumber(rule.fixedPrice);
+      const totalDiscount = fixedDiscountAmount * item.quantity;
+      const rentalAmount = Math.max(0, baseRentalAmount - totalDiscount);
+
       return {
         rule: {
           type: "FIXED_PRICE",
           minimumDuration: rule.minDuration,
           durationUnit: rule.durationUnit,
-          value: fixedPrice.toString(),
+          value: fixedDiscountAmount.toString(),
         },
         discountPercentage: null,
-        discountAmount: Math.max(0, baseRentalAmount - rentalAmount),
+        discountAmount: totalDiscount,
         rentalAmount,
       };
     }

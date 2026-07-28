@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Plus, Trash2, X, ChevronRight, List, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, X, ChevronRight, List, AlertTriangle, Edit3 } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Panel } from "@/components/admin/Panel";
 import {
   listPriceLists,
   createPriceList,
+  updatePriceList,
   deletePriceList,
   createPriceListRule,
   listPriceListRules,
@@ -18,6 +19,7 @@ import {
 import { listProducts, type Product } from "@/features/products/api";
 
 type RuleForm = {
+  id?: string;
   productId: string;
   ruleType: "DISCOUNT" | "FIXED_PRICE";
   discountPercent: string;
@@ -37,6 +39,7 @@ export default function VendorPricelistsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [rules, setRules] = useState<RuleForm[]>([]);
+  const [editingPricelistId, setEditingPricelistId] = useState<string | null>(null);
   
   const [selectedPricelist, setSelectedPricelist] = useState<PriceList | null>(null);
   const [selectedRules, setSelectedRules] = useState<PriceListRule[]>([]);
@@ -64,16 +67,60 @@ export default function VendorPricelistsPage() {
     }
   }
 
-  async function handleCreate(e: React.FormEvent) {
+  function openCreateForm() {
+    setName("");
+    setDescription("");
+    setRules([]);
+    setEditingPricelistId(null);
+    setShowCreate(true);
+  }
+
+  async function openEditForm(pl: PriceList, e: React.MouseEvent) {
+    e.stopPropagation();
+    setName(pl.name);
+    setDescription(pl.description || "");
+    setEditingPricelistId(pl.id);
+    
+    try {
+      const data = await listPriceListRules(pl.id);
+      setRules(data.map(r => ({
+        id: r.id,
+        productId: r.productId || "",
+        ruleType: r.ruleType,
+        discountPercent: r.discountPercent ? String(r.discountPercent) : "",
+        fixedPrice: r.fixedPrice ? String(r.fixedPrice) : "",
+        minDuration: r.minDuration ? String(r.minDuration) : "",
+        durationUnit: r.durationUnit || "DAY"
+      })));
+      setShowCreate(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      toast.error("Failed to load rules for editing");
+    }
+  }
+
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return toast.error("Name is required");
     
     try {
       setCreating(true);
-      const pl = await createPriceList({ name, description });
+      
+      let plId = editingPricelistId;
+      
+      if (plId) {
+        await updatePriceList(plId, { name, description });
+        const existingRules = await listPriceListRules(plId);
+        for (const r of existingRules) {
+          await deletePriceListRule(r.id);
+        }
+      } else {
+        const pl = await createPriceList({ name, description });
+        plId = pl.id;
+      }
       
       for (const rule of rules) {
-        await createPriceListRule(pl.id, {
+        await createPriceListRule(plId!, {
           productId: rule.productId || null,
           ruleType: rule.ruleType,
           discountPercent: rule.ruleType === "DISCOUNT" ? Number(rule.discountPercent) : null,
@@ -83,14 +130,18 @@ export default function VendorPricelistsPage() {
         });
       }
       
-      toast.success("Pricelist created successfully!");
+      toast.success(`Pricelist ${editingPricelistId ? "updated" : "created"} successfully!`);
       setShowCreate(false);
       setName("");
       setDescription("");
       setRules([]);
+      setEditingPricelistId(null);
       await fetchData();
+      if (selectedPricelist?.id === plId) {
+        loadRules({ ...selectedPricelist, name, description });
+      }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to create pricelist");
+      toast.error(err.response?.data?.message || `Failed to ${editingPricelistId ? "update" : "create"} pricelist`);
     } finally {
       setCreating(false);
     }
@@ -153,7 +204,7 @@ export default function VendorPricelistsPage() {
         description="Create duration-based pricing rules and discounts for your products."
         action={
           <button
-            onClick={() => setShowCreate(!showCreate)}
+            onClick={() => showCreate ? setShowCreate(false) : openCreateForm()}
             className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-bold text-black transition hover:bg-yellow-400"
           >
             {showCreate ? "Cancel" : <><Plus size={18} /> Create Pricelist</>}
@@ -165,13 +216,13 @@ export default function VendorPricelistsPage() {
         <Panel className="mb-6 p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="font-display text-xl font-bold text-text">New Pricelist Builder</h2>
+              <h2 className="font-display text-xl font-bold text-text">{editingPricelistId ? "Edit Pricelist" : "New Pricelist Builder"}</h2>
               <p className="mt-1 text-sm text-chalk">Configure long-term discounts and packages.</p>
             </div>
             <button type="button" onClick={() => setShowCreate(false)} className="rounded-lg p-2 text-chalk hover:bg-black/5 dark:hover:bg-white/5"><X size={20}/></button>
           </div>
 
-          <form onSubmit={handleCreate} className="space-y-6">
+          <form onSubmit={handleSave} className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold text-text">
                 Pricelist Name
@@ -203,7 +254,7 @@ export default function VendorPricelistsPage() {
                           Product
                           <select value={rule.productId} onChange={e => updateRule(idx, "productId", e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-text">
                             <option value="">All Products</option>
-                            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
                           </select>
                         </label>
 
@@ -285,6 +336,7 @@ export default function VendorPricelistsPage() {
                       <td className="px-5 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button onClick={(e) => { e.stopPropagation(); loadRules(pl); }} className="rounded-lg p-2 text-chalk hover:bg-black/5 hover:text-text"><ChevronRight size={16}/></button>
+                          <button onClick={(e) => openEditForm(pl, e)} className="rounded-lg p-2 text-chalk hover:bg-black/5 hover:text-text"><Edit3 size={16}/></button>
                           <button onClick={(e) => { e.stopPropagation(); setListToDelete(pl.id); }} className="rounded-lg p-2 text-red-500 hover:bg-red-500/10"><Trash2 size={16}/></button>
                         </div>
                       </td>

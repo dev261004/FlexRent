@@ -44,6 +44,8 @@ export class PriceListRuleService {
       discountPercent: payload.discountPercent ?? null,
       fixedPrice: payload.fixedPrice ?? null,
       minQuantity: payload.minQuantity,
+      minDuration: payload.minDuration ?? null,
+      durationUnit: payload.durationUnit ?? null,
       validFrom: payload.validFrom ?? null,
       validTo: payload.validTo ?? null,
       selectable: payload.selectable,
@@ -120,6 +122,8 @@ export class PriceListRuleService {
     }
     if (payload.fixedPrice !== undefined) data.fixedPrice = payload.fixedPrice;
     if (payload.minQuantity !== undefined) data.minQuantity = payload.minQuantity;
+    if (payload.minDuration !== undefined) data.minDuration = payload.minDuration;
+    if (payload.durationUnit !== undefined) data.durationUnit = payload.durationUnit;
     if (payload.validFrom !== undefined) data.validFrom = payload.validFrom;
     if (payload.validTo !== undefined) data.validTo = payload.validTo;
     if (payload.selectable !== undefined) data.selectable = payload.selectable;
@@ -284,6 +288,8 @@ export class PriceListRuleService {
       discountPercent: decimalToString(rule.discountPercent),
       fixedPrice: decimalToString(rule.fixedPrice),
       minQuantity: rule.minQuantity,
+      minDuration: rule.minDuration,
+      durationUnit: rule.durationUnit,
       validFrom: rule.validFrom?.toISOString() ?? null,
       validTo: rule.validTo?.toISOString() ?? null,
       selectable: rule.selectable,

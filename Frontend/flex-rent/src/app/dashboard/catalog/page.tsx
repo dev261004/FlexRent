@@ -269,7 +269,7 @@ function BookingModal({ product, customerId, onClose }: { product: Product; cust
                      </div>
                      {Number(preview.items[0].discountAmount) > 0 && (
                         <div className="flex justify-between text-sm text-green-500">
-                           <span>Long-Term Savings</span>
+                           <span>Discount</span>
                            <span>-{price(preview.items[0].discountAmount)}</span>
                         </div>
                      )}
