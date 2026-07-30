@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { Moon, Search, Sun } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/components/admin/ThemeProvider";
@@ -13,9 +14,28 @@ export default function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const { theme, toggleTheme, ready } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (isLoading || !user) return;
+
+    if (user.role === "VENDOR") {
+      const orderMatch = pathname.match(/\/dashboard\/orders\/([^/]+)/);
+      if (orderMatch) {
+        router.replace(`/vendor/operations/${orderMatch[1]}`);
+      } else if (pathname.startsWith("/dashboard/notifications")) {
+        router.replace("/vendor/notifications");
+      } else {
+        router.replace("/vendor/dashboard");
+      }
+    } else if (user.role === "ADMIN") {
+      router.replace("/admin/dashboard");
+    }
+  }, [user, isLoading, pathname, router]);
 
   useEffect(() => {
     const saved = localStorage.getItem("flexrent_customer_sidebar_collapsed");

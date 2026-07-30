@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, Sun, Moon } from "lucide-react";
 import { VendorSidebar } from "@/components/vendor/VendorSidebar";
 import { useTheme } from "@/components/admin/ThemeProvider";
@@ -16,8 +17,18 @@ export default function VendorLayout({
   children: React.ReactNode;
 }>) {
   const { theme, toggleTheme, ready } = useTheme();
-  const { user, login, token } = useAuth();
+  const { user, login, token, isLoading } = useAuth();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (isLoading || !user) return;
+    if (user.role === "CUSTOMER") {
+      router.replace("/dashboard");
+    } else if (user.role === "ADMIN") {
+      router.replace("/admin/dashboard");
+    }
+  }, [user, isLoading, router]);
 
   useEffect(() => {
     const saved = localStorage.getItem("flexrent_vendor_sidebar_collapsed");

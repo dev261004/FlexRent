@@ -12,6 +12,8 @@ import {
 import { NotificationCard } from "./NotificationCard";
 import { useNotifications } from "@/features/notifications/hooks";
 import { useNotificationContext } from "@/contexts/NotificationContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { getNotificationTargetUrl } from "@/features/notifications/utils";
 import type {
   NotificationType,
   NotificationPriority,
@@ -54,6 +56,7 @@ const priorityOptions: { value: NotificationPriority | ""; label: string }[] = [
 export function NotificationsPageContent({
   basePath,
 }: NotificationsPageContentProps) {
+  const { user } = useAuth();
   const router = useRouter();
   const { refreshUnreadCount } = useNotificationContext();
   const {
@@ -99,11 +102,16 @@ export function NotificationsPageContent({
 
   const handleNotificationClick = useCallback(
     (notification: { actionUrl: string | null; id: string; isRead: boolean }) => {
-      if (notification.actionUrl) {
-        router.push(notification.actionUrl);
+      const targetUrl = getNotificationTargetUrl(
+        notification.actionUrl,
+        user?.role,
+        basePath
+      );
+      if (targetUrl) {
+        router.push(targetUrl);
       }
     },
-    [router]
+    [router, user?.role, basePath]
   );
 
   const setPage = (page: number) => {

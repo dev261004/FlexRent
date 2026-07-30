@@ -740,6 +740,19 @@ export class RentalOrderService {
       return submittedPayment;
     });
 
+    notificationService
+      .notify({
+        userId: order.vendorId,
+        title: "Payment Submitted 💳",
+        message: `Payment submitted for rental order #${order.rentalNumber} by customer (${user.email}).`,
+        type: "PAYMENT_RECEIVED",
+        priority: "HIGH",
+        actionUrl: `/vendor/operations/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `payment_submitted_${order.id}_${payment.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
     return this.mapUpiPayment(payment, order);
   }
 

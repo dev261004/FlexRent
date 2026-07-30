@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { CheckCheck } from "lucide-react";
 import { NotificationCard } from "./NotificationCard";
 import { useNotificationContext } from "@/contexts/NotificationContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { getNotificationTargetUrl } from "@/features/notifications/utils";
 import * as notificationApi from "@/features/notifications/api";
 import type { Notification } from "@/features/notifications/types";
 
@@ -20,6 +22,7 @@ export function NotificationDropdown({
   onClose,
   basePath,
 }: NotificationDropdownProps) {
+  const { user } = useAuth();
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const { refreshUnreadCount } = useNotificationContext();
@@ -90,8 +93,13 @@ export function NotificationDropdown({
   };
 
   const handleClick = (notification: Notification) => {
-    if (notification.actionUrl) {
-      router.push(notification.actionUrl);
+    const targetUrl = getNotificationTargetUrl(
+      notification.actionUrl,
+      user?.role,
+      basePath
+    );
+    if (targetUrl) {
+      router.push(targetUrl);
       onClose();
     }
   };

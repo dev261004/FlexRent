@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Sun, Moon } from "lucide-react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { useTheme } from "@/components/admin/ThemeProvider";
@@ -13,8 +14,18 @@ export default function AdminLayout({
   children: React.ReactNode;
 }>) {
   const { theme, toggleTheme, ready } = useTheme();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (isLoading || !user) return;
+    if (user.role === "CUSTOMER") {
+      router.replace("/dashboard");
+    } else if (user.role === "VENDOR") {
+      router.replace("/vendor/dashboard");
+    }
+  }, [user, isLoading, router]);
 
   useEffect(() => {
     const saved = localStorage.getItem("flexrent_admin_sidebar_collapsed");

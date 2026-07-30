@@ -65,7 +65,7 @@ export class OverdueService {
             priority: "HIGH",
             title: "Rental Overdue",
             message: "Your rental is overdue. Please return it as soon as possible to avoid additional charges.",
-            actionUrl: `/dashboard/rentals/${rental.id}`,
+            actionUrl: `/dashboard/orders/${rental.id}`,
             idempotencyKey: `overdue-${rental.id}`,
           });
 
