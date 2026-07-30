@@ -20,6 +20,7 @@ export const getRedisConnection = (): Redis => {
 
     redis.on("connect", () => {
       console.log("✅ Redis connected");
+      redis?.config("SET", "stop-writes-on-bgsave-error", "no").catch(() => {});
     });
   }
 
@@ -27,7 +28,7 @@ export const getRedisConnection = (): Redis => {
 };
 
 export const createRedisConnection = (): Redis => {
-  return new Redis(env.REDIS_URL, {
+  const client = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
     retryStrategy(times) {
@@ -35,6 +36,12 @@ export const createRedisConnection = (): Redis => {
       return delay;
     },
   });
+
+  client.on("connect", () => {
+    client.config("SET", "stop-writes-on-bgsave-error", "no").catch(() => {});
+  });
+
+  return client;
 };
 
 export const disconnectRedis = async (): Promise<void> => {

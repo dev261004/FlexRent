@@ -26,6 +26,7 @@ import {
 import { RejectRentalOrderInput } from "../validations/rental-order-workflow.validation";
 import { notificationService } from "../notifications/notification.service";
 import { reminderService } from "../reminders/reminder.service";
+import { overdueService } from "../overdue/overdue.service";
 
 type RentalOrderItemInput = CreateRentalOrderInput["items"][number];
 type RentalStatusValue =
@@ -459,6 +460,7 @@ export class RentalOrderService {
       .catch((err) => console.error("Notification error:", err.message));
 
     reminderService.cancelRentalReminders(orderId).catch((err) => console.error("Reminder cancellation error:", err.message));
+    overdueService.resolveOverdueByRentalId(orderId).catch((err) => console.error("Overdue resolution error:", err.message));
 
     return mapped;
   }

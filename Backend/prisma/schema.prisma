@@ -163,6 +163,8 @@ model User {
   notifications          Notification[]
   notificationPreference NotificationPreference?
   reminderJobs           ReminderJob[]
+  customerOverdueRecords OverdueRecord[]        @relation("OverdueCustomer")
+  vendorOverdueRecords   OverdueRecord[]        @relation("OverdueVendor")
 
   @@index([role])
   @@index([status])
@@ -490,6 +492,7 @@ model RentalOrder {
   payments              RentalPayment[]
   securityDeposit       SecurityDeposit?
   reminderJobs          ReminderJob[]
+  overdueRecords        OverdueRecord[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -628,5 +631,37 @@ model ReminderJob {
   @@index([userId, status])
   @@index([scheduledFor, status])
   @@index([status])
+}
+
+enum OverdueStatus {
+  ACTIVE
+  RESOLVED
+  IGNORED
+}
+
+model OverdueRecord {
+  id                 String        @id @default(cuid())
+  rentalOrderId      String
+  userId             String
+  vendorId           String
+  expectedReturnDate DateTime
+  detectedAt         DateTime      @default(now())
+  daysOverdue        Int           @default(0)
+  notificationSent   Boolean       @default(false)
+  lateFeeStarted     Boolean       @default(false)
+  resolvedAt         DateTime?
+  status             OverdueStatus @default(ACTIVE)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  rentalOrder RentalOrder @relation(fields: [rentalOrderId], references: [id], onDelete: Cascade)
+  user        User        @relation("OverdueCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  vendor      User        @relation("OverdueVendor", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([rentalOrderId])
+  @@index([status])
+  @@index([detectedAt])
+  @@index([userId])
+  @@index([vendorId])
 }
 

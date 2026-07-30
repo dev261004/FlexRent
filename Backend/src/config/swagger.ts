@@ -30,7 +30,13 @@ const options = {
       },
     ],
   },
-  apis: ["./src/routes/*.ts", "./src/controllers/*.ts"],
+  apis: [
+    "./src/routes/*.ts",
+    "./src/controllers/*.ts",
+    "./src/notifications/*.ts",
+    "./src/reminders/*.ts",
+    "./src/overdue/*.ts",
+  ],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);

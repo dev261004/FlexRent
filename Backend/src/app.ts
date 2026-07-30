@@ -22,6 +22,7 @@ import vendorRoutes from "./routes/vendor.routes";
 import notificationRoutes from "./notifications/notification.routes";
 import notificationTestRoutes from "./notifications/notification.test-routes";
 import reminderRoutes from "./reminders/reminder.routes";
+import overdueRoutes from "./overdue/overdue.routes";
 
 export const app = express();
 
@@ -70,6 +71,8 @@ app.use("/api/notifications", notificationTestRoutes);
 app.use("/notifications", notificationTestRoutes);
 app.use("/api/reminders", reminderRoutes);
 app.use("/reminders", reminderRoutes);
+app.use("/api/overdue", overdueRoutes);
+app.use("/overdue", overdueRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
