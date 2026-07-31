@@ -12,6 +12,10 @@ export type RentalOrder = {
   id: string; rentalNumber: string; status: string; paymentStatus: string;
   customerId?: string; vendorId?: string; approvedAt?: string | null; createdAt?: string;
   actualPickupAt?: string | null; actualReturnAt?: string | null;
+  pickupScheduledAt?: string | null; pickupStartedAt?: string | null;
+  pickupArrivedAt?: string | null; pickupETAInMinutes?: number | null;
+  pickupNotes?: string | null; pickupConfirmedByCustomer?: boolean;
+  pickupConfirmedAt?: string | null;
   rejectedAt?: string | null; rejectionReason?: string | null; notes?: string | null;
   rentalStart: string; rentalEnd: string; grandTotal: string; subtotal: string;
   securityDepositAmount: string; lateFee?: string;
@@ -68,6 +72,62 @@ export async function confirmOrder(orderId: string, method = "CASH") {
 export async function markOrderReturned(orderId: string) {
   const response = await api.post(`/rental-orders/${orderId}/return`, { returnedAt: new Date().toISOString() });
   return response.data.data.rentalOrder as RentalOrder;
+}
+
+export type PickupTimelineStage = {
+  id: string;
+  label: string;
+  completed: boolean;
+  timestamp: string | null;
+};
+
+export type PickupTimeline = {
+  orderId: string;
+  rentalNumber: string;
+  status: string;
+  currentStage: string;
+  pickupETAInMinutes: number | null;
+  pickupNotes: string | null;
+  scheduledTime: string | null;
+  actualPickupAt: string | null;
+  rentalStart: string | null;
+  rentalEnd: string | null;
+  stages: PickupTimelineStage[];
+};
+
+export async function schedulePickup(orderId: string, payload: { pickupScheduledAt: string; pickupETAInMinutes?: number; notes?: string }) {
+  const response = await api.post(`/rental-orders/${orderId}/schedule-pickup`, payload);
+  return response.data.data.rentalOrder as RentalOrder;
+}
+
+export async function startPickupJourney(orderId: string) {
+  const response = await api.post(`/rental-orders/${orderId}/start-pickup`);
+  return response.data.data.rentalOrder as RentalOrder;
+}
+
+export async function markVendorArrived(orderId: string) {
+  const response = await api.post(`/rental-orders/${orderId}/arrive`);
+  return response.data.data.rentalOrder as RentalOrder;
+}
+
+export async function updatePickupEta(orderId: string, pickupETAInMinutes: number, notes?: string) {
+  const response = await api.post(`/rental-orders/${orderId}/update-eta`, { pickupETAInMinutes, notes });
+  return response.data.data.rentalOrder as RentalOrder;
+}
+
+export async function completePickupVendor(orderId: string, notes?: string) {
+  const response = await api.post(`/rental-orders/${orderId}/complete-pickup`, { notes });
+  return response.data.data.rentalOrder as RentalOrder;
+}
+
+export async function confirmPickupCustomer(orderId: string, notes?: string) {
+  const response = await api.post(`/rental-orders/${orderId}/confirm-pickup`, { notes });
+  return response.data.data.rentalOrder as RentalOrder;
+}
+
+export async function getPickupTimeline(orderId: string) {
+  const response = await api.get(`/rental-orders/${orderId}/pickup-timeline`);
+  return response.data.data.timeline as PickupTimeline;
 }
 
 export async function getOperationsDashboard() {

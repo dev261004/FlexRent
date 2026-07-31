@@ -20,6 +20,13 @@ import {
   updateRentalOrder,
   verifyPayment,
   previewRentalOrder,
+  schedulePickup,
+  startPickup,
+  arrivePickup,
+  updatePickupEta,
+  completePickup,
+  confirmPickupCustomer,
+  getPickupTimeline,
 } from "../controllers/rental-order.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
 
@@ -727,5 +734,201 @@ router.put("/:id", requireRole(["ADMIN", "VENDOR"]), updateRentalOrder);
  *         description: Rental order deleted successfully
  */
 router.delete("/:id", requireRole(["ADMIN", "VENDOR"]), deleteRentalOrder);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/schedule-pickup:
+ *   post:
+ *     summary: Schedule pickup for a confirmed rental order (Vendor)
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - pickupScheduledAt
+ *             properties:
+ *               pickupScheduledAt:
+ *                 type: string
+ *                 format: date-time
+ *               pickupETAInMinutes:
+ *                 type: integer
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Pickup scheduled successfully
+ */
+router.post(
+  "/:orderId/schedule-pickup",
+  requireRole(["ADMIN", "VENDOR"]),
+  schedulePickup
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/start-pickup:
+ *   post:
+ *     summary: Vendor starts pickup journey
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Journey started successfully
+ */
+router.post(
+  "/:orderId/start-pickup",
+  requireRole(["ADMIN", "VENDOR"]),
+  startPickup
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/arrive:
+ *   post:
+ *     summary: Vendor arrives at customer pickup destination
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Arrival recorded successfully
+ */
+router.post(
+  "/:orderId/arrive",
+  requireRole(["ADMIN", "VENDOR"]),
+  arrivePickup
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/update-eta:
+ *   post:
+ *     summary: Update estimated pickup arrival time
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - pickupETAInMinutes
+ *             properties:
+ *               pickupETAInMinutes:
+ *                 type: integer
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: ETA updated successfully
+ */
+router.post(
+  "/:orderId/update-eta",
+  requireRole(["ADMIN", "VENDOR"]),
+  updatePickupEta
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/complete-pickup:
+ *   post:
+ *     summary: Vendor marks item handover complete (awaiting customer confirmation)
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Pickup marked complete by vendor
+ */
+router.post(
+  "/:orderId/complete-pickup",
+  requireRole(["ADMIN", "VENDOR"]),
+  completePickup
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/confirm-pickup:
+ *   post:
+ *     summary: Customer confirms pickup, activating the rental duration
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Rental confirmed and activated
+ */
+router.post(
+  "/:orderId/confirm-pickup",
+  requireRole(["CUSTOMER", "ADMIN"]),
+  confirmPickupCustomer
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/pickup-timeline:
+ *   get:
+ *     summary: Get live pickup timeline and stages
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Pickup timeline returned successfully
+ */
+router.get(
+  "/:orderId/pickup-timeline",
+  getPickupTimeline
+);
 
 export default router;

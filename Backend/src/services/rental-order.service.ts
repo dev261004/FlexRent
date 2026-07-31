@@ -16,6 +16,10 @@ import {
   PickupOrderInput,
   ReturnOrderInput,
   ConfirmOrderInput,
+  SchedulePickupInput,
+  UpdateEtaInput,
+  CompletePickupInput,
+  ConfirmPickupCustomerInput,
 } from "../validations/pickup-return.validation";
 import {
   CreatePaymentInput,
@@ -32,7 +36,12 @@ type RentalOrderItemInput = CreateRentalOrderInput["items"][number];
 type RentalStatusValue =
   | "QUOTATION"
   | "CONFIRMED"
+  | "PICKUP_SCHEDULED"
+  | "PICKUP_IN_PROGRESS"
   | "PICKED_UP"
+  | "ACTIVE"
+  | "RETURN_SCHEDULED"
+  | "RETURN_IN_PROGRESS"
   | "RETURNED"
   | "CANCELLED";
 
@@ -375,6 +384,361 @@ export class RentalOrderService {
     return mapped;
   }
 
+  async schedulePickup(
+    orderId: string,
+    payload: SchedulePickupInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+    this.assertWritable(order, user);
+
+    if (order.status !== "CONFIRMED") {
+      throw new AppError(400, "Only confirmed rental orders can be scheduled for pickup");
+    }
+
+    const scheduledDate = new Date(payload.pickupScheduledAt);
+
+    const updatedOrder = await rentalOrderRepository.updateRentalOrder(orderId, {
+      status: "PICKUP_SCHEDULED",
+      pickupScheduledAt: scheduledDate,
+      pickupETAInMinutes: payload.pickupETAInMinutes ?? null,
+      pickupNotes: payload.notes ?? order.pickupNotes,
+      notes: this.mergeNotes(order.notes, [
+        `Pickup scheduled for ${scheduledDate.toISOString()}`,
+        payload.notes ? `Scheduled Notes: ${payload.notes}` : null,
+      ]),
+    });
+
+    reminderService
+      .scheduleRentalReminders({
+        rentalOrderId: updatedOrder.id,
+        userId: updatedOrder.customerId,
+        rentalNumber: updatedOrder.rentalNumber,
+        rentalStart: scheduledDate,
+        rentalEnd: updatedOrder.rentalEnd,
+      })
+      .catch((err) => console.error("Reminder scheduling error:", err.message));
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Pickup Scheduled",
+        message: `Vendor has scheduled your rental pickup for order #${order.rentalNumber} at ${scheduledDate.toLocaleString()}.`,
+        type: "PICKUP_REMINDER",
+        priority: "HIGH",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `pickup_scheduled_${order.id}_${scheduledDate.getTime()}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return this.mapRentalOrder(updatedOrder);
+  }
+
+  async startPickup(orderId: string, user: ProductRequester) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+    this.assertWritable(order, user);
+
+    if (order.status !== "PICKUP_SCHEDULED") {
+      throw new AppError(400, "Pickup must be scheduled before starting the journey");
+    }
+
+    const startedAt = new Date();
+    const updatedOrder = await rentalOrderRepository.updateRentalOrder(orderId, {
+      status: "PICKUP_IN_PROGRESS",
+      pickupStartedAt: startedAt,
+    });
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Vendor Started Journey",
+        message: `Vendor is on the way for your rental order #${order.rentalNumber} pickup.`,
+        type: "PICKUP_REMINDER",
+        priority: "HIGH",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `pickup_started_${order.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return this.mapRentalOrder(updatedOrder);
+  }
+
+  async arrivePickup(orderId: string, user: ProductRequester) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+    this.assertWritable(order, user);
+
+    if (order.status !== "PICKUP_IN_PROGRESS") {
+      throw new AppError(400, "Vendor must start journey before marking arrival");
+    }
+    if (!order.pickupStartedAt) {
+      throw new AppError(400, "Pickup journey has not started yet");
+    }
+
+    const arrivedAt = new Date();
+    const updatedOrder = await rentalOrderRepository.updateRentalOrder(orderId, {
+      pickupArrivedAt: arrivedAt,
+    });
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Vendor Arrived",
+        message: `Vendor has arrived for your rental order #${order.rentalNumber}. Please collect your item and confirm pickup.`,
+        type: "PICKUP_REMINDER",
+        priority: "URGENT",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `pickup_arrived_${order.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return this.mapRentalOrder(updatedOrder);
+  }
+
+  async updatePickupEta(
+    orderId: string,
+    payload: UpdateEtaInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+    this.assertWritable(order, user);
+
+    if (order.status !== "PICKUP_SCHEDULED" && order.status !== "PICKUP_IN_PROGRESS") {
+      throw new AppError(400, "ETA can only be updated when pickup is scheduled or in progress");
+    }
+
+    const updatedOrder = await rentalOrderRepository.updateRentalOrder(orderId, {
+      pickupETAInMinutes: payload.pickupETAInMinutes,
+      pickupNotes: payload.notes ?? order.pickupNotes,
+    });
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Pickup ETA Updated",
+        message: `Estimated arrival time for rental order #${order.rentalNumber} is now ${payload.pickupETAInMinutes} minutes.`,
+        type: "PICKUP_REMINDER",
+        priority: "NORMAL",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber, etaMinutes: payload.pickupETAInMinutes },
+        idempotencyKey: `pickup_eta_${order.id}_${Date.now()}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return this.mapRentalOrder(updatedOrder);
+  }
+
+  async completePickup(
+    orderId: string,
+    payload: CompletePickupInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+    this.assertWritable(order, user);
+
+    if (order.status !== "PICKUP_IN_PROGRESS") {
+      throw new AppError(400, "Pickup journey must be in progress to complete vendor handover");
+    }
+    if (!order.pickupArrivedAt) {
+      throw new AppError(400, "Cannot complete pickup before vendor arrives");
+    }
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Pickup Handed Over",
+        message: `Vendor has handed over item for rental order #${order.rentalNumber}. Please confirm pickup to activate rental.`,
+        type: "PICKUP_REMINDER",
+        priority: "HIGH",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `pickup_handover_${order.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return this.mapRentalOrder(order);
+  }
+
+  async confirmPickupCustomer(
+    orderId: string,
+    payload: ConfirmPickupCustomerInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+
+    if (user.role !== "ADMIN" && order.customerId !== user.id) {
+      throw new AppError(403, "Only the customer who placed this order can confirm pickup");
+    }
+
+    if (order.status !== "PICKUP_IN_PROGRESS" && order.status !== "PICKED_UP") {
+      throw new AppError(400, "Rental order must be in progress to confirm pickup");
+    }
+
+    if (order.pickupConfirmedByCustomer && order.status === "ACTIVE") {
+      throw new AppError(400, "Pickup has already been confirmed by customer");
+    }
+
+    const actualPickupAt = new Date();
+    const durationMs = order.rentalEnd.getTime() - order.rentalStart.getTime();
+    const newRentalEnd = new Date(actualPickupAt.getTime() + Math.max(durationMs, 0));
+
+    const assetIds = this.getAssignedAssetIds(order);
+
+    const updatedOrder = await rentalOrderRepository.transaction(async (tx) => {
+      if (assetIds.length > 0) {
+        await rentalOrderRepository.updateAssets(assetIds, "PICKED_UP", tx);
+      }
+
+      return rentalOrderRepository.updateRentalOrder(
+        orderId,
+        {
+          status: "ACTIVE",
+          actualPickupAt,
+          pickupConfirmedAt: actualPickupAt,
+          pickupConfirmedByCustomer: true,
+          rentalStart: actualPickupAt,
+          rentalEnd: newRentalEnd,
+          notes: this.mergeNotes(order.notes, [
+            `Customer Confirmed Pickup At: ${actualPickupAt.toISOString()}`,
+            payload.notes ? `Confirmation Notes: ${payload.notes}` : null,
+          ]),
+        },
+        tx
+      );
+    });
+
+    reminderService
+      .scheduleRentalReminders({
+        rentalOrderId: updatedOrder.id,
+        userId: updatedOrder.customerId,
+        rentalNumber: updatedOrder.rentalNumber,
+        rentalStart: actualPickupAt,
+        rentalEnd: newRentalEnd,
+      })
+      .catch((err) => console.error("Reminder update error:", err.message));
+
+    notificationService
+      .notify({
+        userId: order.vendorId,
+        title: "Customer Confirmed Pickup",
+        message: `Customer has confirmed pickup for rental order #${order.rentalNumber}. Rental is now ACTIVE.`,
+        type: "PICKUP_REMINDER",
+        priority: "HIGH",
+        actionUrl: `/vendor/operations/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `pickup_customer_confirmed_vendor_${order.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Rental Active",
+        message: `Your rental order #${order.rentalNumber} is now ACTIVE until ${newRentalEnd.toLocaleString()}.`,
+        type: "PICKUP_REMINDER",
+        priority: "HIGH",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: { orderId: order.id, rentalNumber: order.rentalNumber },
+        idempotencyKey: `pickup_customer_confirmed_customer_${order.id}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return this.mapRentalOrder(updatedOrder);
+  }
+
+  async getPickupTimeline(orderId: string, user: ProductRequester) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+
+    if (user.role === "CUSTOMER" && order.customerId !== user.id) {
+      throw new AppError(403, "You do not have access to this rental order timeline");
+    }
+    if (user.role === "VENDOR" && order.vendorId !== user.id) {
+      throw new AppError(403, "You do not have access to this rental order timeline");
+    }
+
+    let currentStage = "QUOTATION_CREATED";
+    if (order.status === "CONFIRMED") currentStage = "VENDOR_ACCEPTED";
+    if (order.status === "PICKUP_SCHEDULED") currentStage = "PICKUP_SCHEDULED";
+    if (order.status === "PICKUP_IN_PROGRESS") {
+      if (order.pickupArrivedAt) {
+        currentStage = "VENDOR_ARRIVED";
+      } else {
+        currentStage = "VENDOR_STARTED_JOURNEY";
+      }
+    }
+    if (order.pickupConfirmedByCustomer || order.status === "ACTIVE" || order.status === "PICKED_UP" || order.status === "RETURN_SCHEDULED" || order.status === "RETURN_IN_PROGRESS" || order.status === "RETURNED") {
+      currentStage = "RENTAL_STARTED";
+    }
+
+    const stages = [
+      {
+        id: "QUOTATION_CREATED",
+        label: "Quotation Created",
+        completed: true,
+        timestamp: order.createdAt ? order.createdAt.toISOString() : null,
+      },
+      {
+        id: "VENDOR_ACCEPTED",
+        label: "Vendor Accepted",
+        completed: order.status !== "QUOTATION" && order.status !== "CANCELLED",
+        timestamp: order.approvedAt ? order.approvedAt.toISOString() : null,
+      },
+      {
+        id: "PICKUP_SCHEDULED",
+        label: "Pickup Scheduled",
+        completed: Boolean(order.pickupScheduledAt),
+        timestamp: order.pickupScheduledAt ? order.pickupScheduledAt.toISOString() : null,
+      },
+      {
+        id: "VENDOR_STARTED_JOURNEY",
+        label: "Vendor Started Journey",
+        completed: Boolean(order.pickupStartedAt),
+        timestamp: order.pickupStartedAt ? order.pickupStartedAt.toISOString() : null,
+      },
+      {
+        id: "VENDOR_ARRIVED",
+        label: "Vendor Arrived",
+        completed: Boolean(order.pickupArrivedAt),
+        timestamp: order.pickupArrivedAt ? order.pickupArrivedAt.toISOString() : null,
+      },
+      {
+        id: "CUSTOMER_CONFIRMED_PICKUP",
+        label: "Customer Confirmed Pickup",
+        completed: Boolean(order.pickupConfirmedByCustomer),
+        timestamp: order.pickupConfirmedAt ? order.pickupConfirmedAt.toISOString() : null,
+      },
+      {
+        id: "RENTAL_STARTED",
+        label: "Rental Active",
+        completed: order.status === "ACTIVE" || order.status === "RETURNED" || order.status === "RETURN_SCHEDULED" || order.status === "RETURN_IN_PROGRESS",
+        timestamp: order.actualPickupAt ? order.actualPickupAt.toISOString() : null,
+      },
+    ];
+
+    return {
+      orderId: order.id,
+      rentalNumber: order.rentalNumber,
+      status: order.status,
+      currentStage,
+      pickupETAInMinutes: order.pickupETAInMinutes ?? null,
+      pickupNotes: order.pickupNotes ?? null,
+      scheduledTime: order.pickupScheduledAt ? order.pickupScheduledAt.toISOString() : null,
+      actualPickupAt: order.actualPickupAt ? order.actualPickupAt.toISOString() : null,
+      rentalStart: order.rentalStart ? order.rentalStart.toISOString() : null,
+      rentalEnd: order.rentalEnd ? order.rentalEnd.toISOString() : null,
+      stages,
+    };
+  }
+
   async returnOrder(
     orderId: string,
     payload: ReturnOrderInput,
@@ -383,8 +747,8 @@ export class RentalOrderService {
     const order = await rentalOrderRepository.getRentalOrder(orderId);
     this.assertWritable(order, user);
 
-    if (order.status !== "PICKED_UP") {
-      throw new AppError(400, "Only active picked-up rental orders can be returned");
+    if (order.status !== "PICKED_UP" && order.status !== "ACTIVE") {
+      throw new AppError(400, "Only active or picked-up rental orders can be returned");
     }
 
     if (order.actualReturnAt) {
@@ -1631,6 +1995,13 @@ export class RentalOrderService {
       rentalStart: order.rentalStart.toISOString(),
       rentalEnd: order.rentalEnd.toISOString(),
       actualPickupAt: order.actualPickupAt?.toISOString() ?? null,
+      pickupScheduledAt: order.pickupScheduledAt?.toISOString() ?? null,
+      pickupStartedAt: order.pickupStartedAt?.toISOString() ?? null,
+      pickupArrivedAt: order.pickupArrivedAt?.toISOString() ?? null,
+      pickupETAInMinutes: order.pickupETAInMinutes ?? null,
+      pickupNotes: order.pickupNotes ?? null,
+      pickupConfirmedByCustomer: order.pickupConfirmedByCustomer ?? false,
+      pickupConfirmedAt: order.pickupConfirmedAt?.toISOString() ?? null,
       actualReturnAt: order.actualReturnAt?.toISOString() ?? null,
       approvedAt: order.approvedAt?.toISOString() ?? null,
       approvedBy: order.approvedBy ?? null,

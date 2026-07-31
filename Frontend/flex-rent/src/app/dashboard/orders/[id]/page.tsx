@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Check, CheckCircle2, ChevronRight, Clipboard, ExternalLink, MapPin, QrCode, Store, Truck, UserRound } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, ChevronRight, Clipboard, ExternalLink, MapPin, QrCode, ShieldCheck, Store, Truck, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getOrder, type RentalOrder } from "@/features/customer/api";
+import { getOrder, getPickupTimeline, confirmPickupCustomer, type RentalOrder, type PickupTimeline as PickupTimelineType } from "@/features/customer/api";
 import { getPaymentQR, getTimeline, submitUpiPayment, type PaymentQR } from "@/features/rentals/api";
+import { PickupTimeline } from "@/components/orders/PickupTimeline";
 
 const money = (value?: string | number | null) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value ?? 0));
@@ -93,6 +94,9 @@ export default function OrderDetailPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const [pickupTimelineData, setPickupTimelineData] = useState<PickupTimelineType | null>(null);
+  const [confirmingPickup, setConfirmingPickup] = useState(false);
+
   const booking = useMemo(() => parseBookingNotes(order?.notes), [order?.notes]);
 
   const load = () => {
@@ -101,13 +105,29 @@ export default function OrderDetailPage() {
     Promise.all([
       getOrder(orderId),
       getTimeline(orderId).catch(() => ({ events: [] })),
+      getPickupTimeline(orderId).catch(() => null),
     ])
-      .then(([orderData, timelineData]) => {
+      .then(([orderData, timelineData, pickupTlData]) => {
         setOrder(orderData);
         setTimeline(timelineData.events ?? []);
+        setPickupTimelineData(pickupTlData);
       })
       .catch(() => setError("Could not load order details."))
       .finally(() => setLoading(false));
+  };
+
+  const handleConfirmPickupCustomer = async () => {
+    if (!order) return;
+    setConfirmingPickup(true);
+    setError("");
+    try {
+      await confirmPickupCustomer(order.id);
+      load();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to confirm pickup.");
+    } finally {
+      setConfirmingPickup(false);
+    }
   };
 
   useEffect(load, [orderId]);
@@ -205,6 +225,35 @@ export default function OrderDetailPage() {
       </header>
 
       <div className="mx-auto max-w-4xl space-y-12">
+        {/* Customer Confirm Pickup Action (if pickup in progress / arrived) */}
+        {(order.status === "PICKUP_IN_PROGRESS" || (order.pickupArrivedAt && !order.pickupConfirmedByCustomer)) && (
+          <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 p-6 shadow-xl text-white backdrop-blur-xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 border border-emerald-500/30">
+                  <ShieldCheck className="h-3.5 w-3.5" /> Vendor Arrived / Handover Ready
+                </span>
+                <h3 className="text-xl font-bold mt-2 text-white">Confirm Item Receipt & Start Rental</h3>
+                <p className="text-sm text-slate-300 mt-1 max-w-xl">
+                  Please inspect your rental item. When you confirm pickup below, your rental official duration begins and status updates to <span className="font-semibold text-emerald-400">ACTIVE</span>.
+                </p>
+              </div>
+              <button
+                onClick={handleConfirmPickupCustomer}
+                disabled={confirmingPickup}
+                className="shrink-0 flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3.5 text-sm font-extrabold text-slate-950 shadow-xl hover:from-emerald-400 hover:to-teal-400 active:scale-95 transition-all disabled:opacity-50"
+              >
+                <ShieldCheck className="h-5 w-5" />
+                {confirmingPickup ? "Confirming..." : "Confirm Pickup Now"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Live Pickup Timeline Stepper */}
+        {pickupTimelineData && (
+          <PickupTimeline timeline={pickupTimelineData} />
+        )}
         {/* Order Progress */}
         <section>
           <h2 className="mb-8 font-display text-2xl font-semibold text-text text-center md:text-left">Order Progress</h2>

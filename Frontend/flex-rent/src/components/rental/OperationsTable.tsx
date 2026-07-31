@@ -9,8 +9,11 @@ import { Panel } from "@/components/admin/Panel";
 
 const statusStyle: Record<string, string> = {
   QUOTATION: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  CONFIRMED: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  PICKED_UP: "bg-accent/15 text-yellow-800 dark:text-accent",
+  CONFIRMED: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
+  PICKUP_SCHEDULED: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
+  PICKUP_IN_PROGRESS: "bg-purple-500/15 text-purple-700 dark:text-purple-300",
+  PICKED_UP: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  ACTIVE: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   RETURNED: "bg-green-500/15 text-green-700 dark:text-green-300",
   CANCELLED: "bg-black/5 text-chalk dark:bg-white/10",
 };
@@ -56,7 +59,7 @@ export function OperationsTable() {
   };
 
   const actionable = orders.filter((order) =>
-    ["QUOTATION", "CONFIRMED", "PICKED_UP"].includes(order.status) ||
+    ["QUOTATION", "CONFIRMED", "PICKUP_SCHEDULED", "PICKUP_IN_PROGRESS", "PICKED_UP", "ACTIVE"].includes(order.status) ||
     order.paymentStatus === "PAYMENT_SUBMITTED"
   );
 
@@ -121,8 +124,16 @@ export function OperationsTable() {
                         <button disabled={busy !== null} onClick={() => run(order, "reject payment", () => rejectPayment(order.id, window.prompt("Payment rejection remarks") || "Invalid transaction"))} className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-bold text-red-600">Reject pay</button>
                       </>
                     )}
-                    {order.status === "CONFIRMED" && <button disabled={busy !== null} onClick={() => run(order, "mark as picked up", () => markOrderPickedUp(order.id))} className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black"><Truck size={14}/>Pickup</button>}
-                    {order.status === "PICKED_UP" && <button disabled={busy !== null} onClick={() => run(order, "mark as returned", () => markOrderReturned(order.id))} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text hover:border-accent"><RotateCcw size={14}/>Return</button>}
+                    {(order.status === "CONFIRMED" || order.status === "PICKUP_SCHEDULED" || order.status === "PICKUP_IN_PROGRESS") && (
+                      <Link href={`/vendor/operations/${order.id}`} className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black hover:bg-accent/90">
+                        <Truck size={14}/> Manage Pickup
+                      </Link>
+                    )}
+                    {(order.status === "PICKED_UP" || order.status === "ACTIVE") && (
+                      <button disabled={busy !== null} onClick={() => run(order, "mark as returned", () => markOrderReturned(order.id))} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-bold text-text hover:border-accent">
+                        <RotateCcw size={14}/>Return
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

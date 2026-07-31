@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Check, CheckCircle2, ChevronRight, MapPin, Store, Truck, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getOrder, type RentalOrder } from "@/features/customer/api";
+import { getOrder, getPickupTimeline, type RentalOrder, type PickupTimeline as PickupTimelineType } from "@/features/customer/api";
 import { getTimeline } from "@/features/rentals/api";
+import { PickupJourneyControl } from "@/components/vendor/PickupJourneyControl";
+import { PickupTimeline } from "@/components/orders/PickupTimeline";
 
 const money = (value?: string | number | null) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value ?? 0));
@@ -88,16 +90,20 @@ export default function VendorOrderDetailPage() {
 
   const booking = useMemo(() => parseBookingNotes(order?.notes), [order?.notes]);
 
+  const [pickupTimelineData, setPickupTimelineData] = useState<PickupTimelineType | null>(null);
+
   const load = () => {
     setLoading(true);
     setError("");
     Promise.all([
       getOrder(orderId),
       getTimeline(orderId).catch(() => ({ events: [] })),
+      getPickupTimeline(orderId).catch(() => null),
     ])
-      .then(([orderData, timelineData]) => {
+      .then(([orderData, timelineData, pickupTlData]) => {
         setOrder(orderData);
         setTimeline(timelineData.events ?? []);
+        setPickupTimelineData(pickupTlData);
       })
       .catch(() => setError("Could not load order details."))
       .finally(() => setLoading(false));
@@ -171,6 +177,19 @@ export default function VendorOrderDetailPage() {
       </header>
 
       <div className="mx-auto max-w-4xl space-y-12">
+        {/* Vendor Pickup Journey Operations Control */}
+        <PickupJourneyControl
+          order={order}
+          onUpdate={(updated) => {
+            setOrder(updated);
+            getPickupTimeline(orderId).then(setPickupTimelineData).catch(() => null);
+          }}
+        />
+
+        {/* Live Pickup Timeline Stepper */}
+        {pickupTimelineData && (
+          <PickupTimeline timeline={pickupTimelineData} />
+        )}
         {/* Order Progress */}
         <section>
           <h2 className="mb-8 font-display text-2xl font-semibold text-text text-center md:text-left">Order Progress</h2>
