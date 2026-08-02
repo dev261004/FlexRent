@@ -74,7 +74,12 @@ enum ProductAssetStatus {
 enum RentalStatus {
   QUOTATION
   CONFIRMED
+  PICKUP_SCHEDULED
+  PICKUP_IN_PROGRESS
   PICKED_UP
+  ACTIVE
+  RETURN_SCHEDULED
+  RETURN_IN_PROGRESS
   RETURNED
   CANCELLED
 }
@@ -471,7 +476,14 @@ model RentalOrder {
   pickupCountry         String?
   rentalStart           DateTime
   rentalEnd             DateTime
-  actualPickupAt        DateTime?
+  actualPickupAt            DateTime?
+  pickupScheduledAt         DateTime?
+  pickupStartedAt           DateTime?
+  pickupArrivedAt           DateTime?
+  pickupETAInMinutes        Int?
+  pickupNotes               String?
+  pickupConfirmedByCustomer Boolean           @default(false)
+  pickupConfirmedAt         DateTime?
   actualReturnAt        DateTime?
   approvedAt            DateTime?
   approvedBy            String?

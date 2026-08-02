@@ -17,6 +17,8 @@ const date = (value?: string | null) =>
 
 const label = (value?: string | null) => (value ?? "-").replaceAll("_", " ");
 
+import { getProductImageUrl } from "@/core/image";
+
 const fallbackImage = "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=900&q=80";
 
 const steps = [
@@ -257,7 +259,7 @@ export default function VendorOrderDetailPage() {
               {order.items.map((item) => (
                 <div key={item.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
                   <div className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-surface-raised sm:w-28">
-                    <img src={item.product.primaryImage?.url ?? fallbackImage} alt={item.product.primaryImage?.altText ?? item.product.name} className="h-full w-full object-cover" />
+                    <img src={getProductImageUrl(item.product.primaryImage?.url)} alt={item.product.primaryImage?.altText ?? item.product.name} className="h-full w-full object-cover" />
                   </div>
                   <div className="flex flex-1 flex-col justify-center">
                     <div className="flex items-start justify-between gap-4">

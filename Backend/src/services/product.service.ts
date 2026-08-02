@@ -878,9 +878,13 @@ export class ProductService {
   }
 
   private mapImage(image: ProductImageRecord) {
+    let url = image.url;
+    if (url && url.startsWith("http://res.cloudinary.com")) {
+      url = url.replace("http://res.cloudinary.com", "https://res.cloudinary.com");
+    }
     return {
       id: image.id,
-      url: image.url,
+      url,
       altText: image.altText,
       isPrimary: image.isPrimary,
       sortOrder: image.sortOrder,

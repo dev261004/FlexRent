@@ -86,15 +86,10 @@ const initialForm: ProductForm = {
   maxDurationUnit: "DAY",
 };
 
-const fallbackImage =
-  "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=900&q=80";
-
-const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/api$/, "");
+import { getProductImageUrl } from "@/core/image";
 
 function getImageUrl(url: string | undefined | null) {
-  if (!url) return fallbackImage;
-  if (url.startsWith("http")) return url;
-  return `${BACKEND_URL}${url}`;
+  return getProductImageUrl(url);
 }
 
 export function ProductManager({
