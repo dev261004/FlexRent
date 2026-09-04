@@ -28,6 +28,12 @@ import {
   SubmitUpiPaymentInput,
 } from "../validations/payment.validation";
 import { RejectRentalOrderInput } from "../validations/rental-order-workflow.validation";
+import {
+  PreviewExtensionInput,
+  RequestExtensionInput,
+  ApproveExtensionInput,
+  RejectExtensionInput,
+} from "../validations/extension.validation";
 import { notificationService } from "../notifications/notification.service";
 import { reminderService } from "../reminders/reminder.service";
 import { overdueService } from "../overdue/overdue.service";
@@ -46,6 +52,22 @@ type RentalStatusValue =
   | "CANCELLED";
 
 const EDITABLE_STATUS: RentalStatusValue = "QUOTATION";
+
+export interface RentalOrderExtensionData {
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedEnd: string;
+  originalEnd: string;
+  additionalDays: number;
+  additionalRentalFee: string;
+  additionalDeposit: string;
+  additionalGrandTotal: string;
+  reason?: string | null;
+  requestedAt: string;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  rejectionReason?: string | null;
+  vendorNotes?: string | null;
+}
 
 const decimalToString = (
   value: Prisma.Decimal | number | string | null | undefined
@@ -737,6 +759,314 @@ export class RentalOrderService {
       rentalEnd: order.rentalEnd ? order.rentalEnd.toISOString() : null,
       stages,
     };
+  }
+
+  async previewExtension(
+    orderId: string,
+    payload: PreviewExtensionInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+    this.assertReadable(order, user);
+
+    const newRentalEnd = new Date(payload.newRentalEnd);
+    if (isNaN(newRentalEnd.getTime())) {
+      throw new AppError(400, "Invalid new rental end date");
+    }
+    if (newRentalEnd.getTime() <= order.rentalEnd.getTime()) {
+      throw new AppError(400, "New rental end date must be after current rental end date");
+    }
+
+    const itemsPayload = order.items.map((item: any) => ({
+      productId: item.productId,
+      variantId: item.variantId ?? undefined,
+      assetId: item.assetId ?? undefined,
+      quantity: item.quantity,
+    }));
+
+    for (const item of itemsPayload) {
+      const product = await rentalOrderRepository.findProductById(item.productId);
+      if (!product) throw new AppError(404, "Product not found");
+      await this.assertAvailability(item, product, order.rentalEnd, newRentalEnd, order.id);
+    }
+
+    const additionalHours = (newRentalEnd.getTime() - order.rentalEnd.getTime()) / (1000 * 60 * 60);
+    const additionalDays = Math.max(1, Math.ceil(additionalHours / 24));
+
+    const cumulativeCalculated = await this.buildCalculatedItems(
+      itemsPayload,
+      order.vendorId,
+      order.rentalStart,
+      newRentalEnd,
+      user,
+      order.id
+    );
+    const cumulativeTotals = this.calculateTotals(cumulativeCalculated);
+
+    const existingSubtotal = toNumber(order.subtotal);
+    const existingDeposit = toNumber(order.securityDepositAmount);
+
+    let additionalRentalFee = Math.max(0, cumulativeTotals.subtotal - existingSubtotal);
+    let additionalDeposit = Math.max(0, cumulativeTotals.securityDeposit - existingDeposit);
+
+    if (additionalRentalFee <= 0) {
+      const incrementalCalculated = await this.buildCalculatedItems(
+        itemsPayload,
+        order.vendorId,
+        order.rentalEnd,
+        newRentalEnd,
+        user,
+        order.id
+      );
+      const incrementalTotals = this.calculateTotals(incrementalCalculated);
+      additionalRentalFee = incrementalTotals.subtotal;
+      additionalDeposit = Math.max(0, incrementalTotals.securityDeposit - existingDeposit);
+    }
+
+    const additionalGrandTotal = additionalRentalFee + additionalDeposit;
+
+    return {
+      orderId: order.id,
+      rentalNumber: order.rentalNumber,
+      currentRentalEnd: order.rentalEnd.toISOString(),
+      newRentalEnd: newRentalEnd.toISOString(),
+      additionalDays,
+      currentSubtotal: decimalToString(order.subtotal),
+      newSubtotal: decimalToString(existingSubtotal + additionalRentalFee),
+      additionalRentalFee: decimalToString(additionalRentalFee),
+      currentSecurityDeposit: decimalToString(order.securityDepositAmount),
+      newSecurityDeposit: decimalToString(existingDeposit + additionalDeposit),
+      additionalDeposit: decimalToString(additionalDeposit),
+      additionalGrandTotal: decimalToString(additionalGrandTotal),
+      newGrandTotal: decimalToString(toNumber(order.grandTotal) + additionalGrandTotal),
+      items: cumulativeCalculated.items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        rentalPrice: decimalToString(item.rentalPrice),
+        pricingRule: item.pricingRule,
+        discountPercentage: item.discountPercentage ? decimalToString(item.discountPercentage) : null,
+        subtotal: decimalToString(item.subtotal),
+      })),
+    };
+  }
+
+  async requestExtension(
+    orderId: string,
+    payload: RequestExtensionInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+
+    if (user.role === "CUSTOMER" && order.customerId !== user.id) {
+      throw new AppError(403, "You can only request extension for your own rental orders");
+    }
+
+    if (!["ACTIVE", "CONFIRMED", "PICKED_UP"].includes(order.status)) {
+      throw new AppError(400, "Only active, confirmed, or picked up orders can be extended");
+    }
+
+    const existingExtension = this.parseExtensionFromNotes(order.notes);
+    if (existingExtension && existingExtension.status === "PENDING") {
+      throw new AppError(400, "An extension request is already pending vendor review for this order");
+    }
+
+    const preview = await this.previewExtension(orderId, { newRentalEnd: payload.newRentalEnd }, user);
+
+    const extensionData: RentalOrderExtensionData = {
+      status: "PENDING",
+      requestedEnd: preview.newRentalEnd,
+      originalEnd: preview.currentRentalEnd,
+      additionalDays: preview.additionalDays,
+      additionalRentalFee: preview.additionalRentalFee,
+      additionalDeposit: preview.additionalDeposit,
+      additionalGrandTotal: preview.additionalGrandTotal,
+      reason: payload.reason ?? null,
+      requestedAt: new Date().toISOString(),
+    };
+
+    const auditLine = `Extension requested until ${new Date(preview.newRentalEnd).toLocaleString("en-IN")}${payload.reason ? ` - Reason: ${payload.reason}` : ""}`;
+    const updatedNotes = this.serializeExtensionToNotes(order.notes, extensionData, auditLine);
+
+    const updatedOrder = await rentalOrderRepository.updateRentalOrder(orderId, {
+      notes: updatedNotes,
+    });
+
+    notificationService
+      .notify({
+        userId: order.vendorId,
+        title: "Rental Extension Requested",
+        message: `Customer requested extension for order #${order.rentalNumber} until ${new Date(preview.newRentalEnd).toLocaleDateString("en-IN")} (+${preview.additionalDays} days, +₹${preview.additionalGrandTotal}).`,
+        type: "EXTENSION_REQUESTED",
+        priority: "HIGH",
+        actionUrl: `/vendor/operations/${order.id}`,
+        data: {
+          orderId: order.id,
+          rentalNumber: order.rentalNumber,
+          requestedEnd: preview.newRentalEnd,
+          additionalDays: preview.additionalDays,
+          additionalGrandTotal: preview.additionalGrandTotal,
+        },
+        idempotencyKey: `ext_req_${order.id}_${Date.now()}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return this.mapRentalOrder(updatedOrder);
+  }
+
+  async approveExtension(
+    orderId: string,
+    payload: ApproveExtensionInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+    this.assertWritable(order, user);
+
+    const extension = this.parseExtensionFromNotes(order.notes);
+    if (!extension || extension.status !== "PENDING") {
+      throw new AppError(400, "No pending extension request found for this rental order");
+    }
+
+    const newRentalEnd = new Date(extension.requestedEnd);
+    const additionalRentalFee = toNumber(extension.additionalRentalFee);
+    const additionalDeposit = toNumber(extension.additionalDeposit);
+    const additionalGrandTotal = toNumber(extension.additionalGrandTotal);
+
+    const itemsPayload = order.items.map((item: any) => ({
+      productId: item.productId,
+      variantId: item.variantId ?? undefined,
+      assetId: item.assetId ?? undefined,
+      quantity: item.quantity,
+    }));
+    for (const item of itemsPayload) {
+      const product = await rentalOrderRepository.findProductById(item.productId);
+      if (!product) throw new AppError(404, "Product not found");
+      await this.assertAvailability(item, product, order.rentalEnd, newRentalEnd, order.id);
+    }
+
+    const approvedExtensionData: RentalOrderExtensionData = {
+      ...extension,
+      status: "APPROVED",
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: user.id,
+      vendorNotes: payload.notes ?? null,
+    };
+
+    const auditLine = `Extension approved by vendor until ${newRentalEnd.toLocaleString("en-IN")}${payload.notes ? ` - Vendor Notes: ${payload.notes}` : ""}`;
+    const updatedNotes = this.serializeExtensionToNotes(order.notes, approvedExtensionData, auditLine);
+
+    const newSubtotal = toNumber(order.subtotal) + additionalRentalFee;
+    const newSecurityDeposit = toNumber(order.securityDepositAmount) + additionalDeposit;
+    const newGrandTotal = toNumber(order.grandTotal) + additionalGrandTotal;
+
+    const updatedOrder = await rentalOrderRepository.updateRentalOrder(orderId, {
+      rentalEnd: newRentalEnd,
+      subtotal: newSubtotal,
+      securityDepositAmount: newSecurityDeposit,
+      grandTotal: newGrandTotal,
+      notes: updatedNotes,
+    });
+
+    if (additionalDeposit > 0 && order.securityDeposit) {
+      await rentalOrderRepository
+        .updateSecurityDeposit(order.id, {
+          amount: toNumber(order.securityDeposit.amount) + additionalDeposit,
+        })
+        .catch((err) => console.error("Deposit update error:", err.message));
+    }
+
+    if (additionalGrandTotal > 0) {
+      await rentalOrderRepository
+        .createPayment({
+          rentalOrderId: order.id,
+          amount: additionalGrandTotal,
+          method: "UPI",
+          status: "PENDING",
+          remarks: `Extension charge for ${extension.additionalDays} additional days until ${newRentalEnd.toLocaleDateString("en-IN")}`,
+        })
+        .catch((err) => console.error("Payment create error:", err.message));
+    }
+
+    reminderService
+      .rescheduleRentalReminders({
+        rentalOrderId: updatedOrder.id,
+        userId: updatedOrder.customerId,
+        rentalNumber: updatedOrder.rentalNumber,
+        rentalStart: updatedOrder.rentalStart,
+        rentalEnd: newRentalEnd,
+      })
+      .catch((err) => console.error("Reminder reschedule error:", err.message));
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Rental Extension Approved",
+        message: `Your rental extension for order #${order.rentalNumber} has been approved! New return date: ${newRentalEnd.toLocaleDateString("en-IN")}.`,
+        type: "EXTENSION_APPROVED",
+        priority: "HIGH",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: {
+          orderId: order.id,
+          rentalNumber: order.rentalNumber,
+          newRentalEnd: newRentalEnd.toISOString(),
+          additionalGrandTotal: extension.additionalGrandTotal,
+        },
+        idempotencyKey: `ext_app_${order.id}_${Date.now()}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return this.mapRentalOrder(updatedOrder);
+  }
+
+  async rejectExtension(
+    orderId: string,
+    payload: RejectExtensionInput,
+    user: ProductRequester
+  ) {
+    const order = await rentalOrderRepository.getRentalOrder(orderId);
+    if (!order) throw new AppError(404, "Rental order not found");
+    this.assertWritable(order, user);
+
+    const extension = this.parseExtensionFromNotes(order.notes);
+    if (!extension || extension.status !== "PENDING") {
+      throw new AppError(400, "No pending extension request found for this rental order");
+    }
+
+    const rejectedExtensionData: RentalOrderExtensionData = {
+      ...extension,
+      status: "REJECTED",
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: user.id,
+      rejectionReason: payload.reason,
+    };
+
+    const auditLine = `Extension rejected by vendor - Reason: ${payload.reason}`;
+    const updatedNotes = this.serializeExtensionToNotes(order.notes, rejectedExtensionData, auditLine);
+
+    const updatedOrder = await rentalOrderRepository.updateRentalOrder(orderId, {
+      notes: updatedNotes,
+    });
+
+    notificationService
+      .notify({
+        userId: order.customerId,
+        title: "Rental Extension Request Declined",
+        message: `Your extension request for order #${order.rentalNumber} was declined by the vendor: "${payload.reason}". Your original return date remains ${order.rentalEnd.toLocaleDateString("en-IN")}.`,
+        type: "EXTENSION_REJECTED",
+        priority: "NORMAL",
+        actionUrl: `/dashboard/orders/${order.id}`,
+        data: {
+          orderId: order.id,
+          rentalNumber: order.rentalNumber,
+          rejectionReason: payload.reason,
+        },
+        idempotencyKey: `ext_rej_${order.id}_${Date.now()}`,
+      })
+      .catch((err) => console.error("Notification error:", err.message));
+
+    return this.mapRentalOrder(updatedOrder);
   }
 
   async returnOrder(
@@ -1975,6 +2305,28 @@ export class RentalOrderService {
     }
   }
 
+  private parseExtensionFromNotes(notes: string | null): RentalOrderExtensionData | null {
+    if (!notes) return null;
+    const match = notes.match(/<!--EXTENSION_REQUEST:(.*?)-->/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[1]);
+    } catch {
+      return null;
+    }
+  }
+
+  private serializeExtensionToNotes(
+    existingNotes: string | null,
+    extension: RentalOrderExtensionData,
+    auditText?: string
+  ): string {
+    const stripped = (existingNotes ?? "").replace(/<!--EXTENSION_REQUEST:.*?-->/g, "").trim();
+    const jsonTag = `<!--EXTENSION_REQUEST:${JSON.stringify(extension)}-->`;
+    const lines = [stripped, auditText, jsonTag].filter(Boolean);
+    return lines.join("\n\n");
+  }
+
   private mergeNotes(existingNotes: string | null, entries: Array<string | null>): string {
     const newNotes = entries.filter(Boolean).join("\n");
     return [existingNotes, newNotes].filter(Boolean).join("\n\n");
@@ -2013,6 +2365,7 @@ export class RentalOrderService {
       lateFee: decimalToString(order.lateFee),
       grandTotal: decimalToString(order.grandTotal),
       notes: order.notes,
+      extension: this.parseExtensionFromNotes(order.notes),
       customer: order.customer,
       vendor: order.vendor,
       priceList: order.priceList,

@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Check, CheckCircle2, ChevronRight, Download, FileText, MapPin, Store, Truck, UserRound } from "lucide-react";
+import { ArrowLeft, AlertCircle, AlertTriangle, Check, CheckCircle, CheckCircle2, ChevronRight, Download, FileText, MapPin, Sparkles, Store, Truck, UserRound, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getOrder, getPickupTimeline, downloadRentalOrderInvoice, type RentalOrder, type PickupTimeline as PickupTimelineType } from "@/features/customer/api";
-import { getTimeline } from "@/features/rentals/api";
+import { getTimeline, approveRentalOrderExtension, rejectRentalOrderExtension } from "@/features/rentals/api";
 import { PickupJourneyControl } from "@/components/vendor/PickupJourneyControl";
 import { PickupTimeline } from "@/components/orders/PickupTimeline";
 
@@ -94,6 +94,11 @@ export default function VendorOrderDetailPage() {
 
   const [pickupTimelineData, setPickupTimelineData] = useState<PickupTimelineType | null>(null);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [approvingExtension, setApprovingExtension] = useState(false);
+  const [rejectingExtension, setRejectingExtension] = useState(false);
+  const [vendorNotes, setVendorNotes] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
+  const [showRejectPrompt, setShowRejectPrompt] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -122,6 +127,37 @@ export default function VendorOrderDetailPage() {
       setError(err?.response?.data?.message || "Failed to download invoice.");
     } finally {
       setDownloadingInvoice(false);
+    }
+  };
+
+  const handleApproveExtension = async () => {
+    if (!order) return;
+    setApprovingExtension(true);
+    setError("");
+    try {
+      const updated = await approveRentalOrderExtension(order.id, { notes: vendorNotes.trim() || undefined });
+      setOrder(updated);
+      setVendorNotes("");
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to approve extension.");
+    } finally {
+      setApprovingExtension(false);
+    }
+  };
+
+  const handleRejectExtension = async () => {
+    if (!order || !rejectReason.trim()) return;
+    setRejectingExtension(true);
+    setError("");
+    try {
+      const updated = await rejectRentalOrderExtension(order.id, { reason: rejectReason.trim() });
+      setOrder(updated);
+      setShowRejectPrompt(false);
+      setRejectReason("");
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to reject extension.");
+    } finally {
+      setRejectingExtension(false);
     }
   };
 
@@ -200,6 +236,123 @@ export default function VendorOrderDetailPage() {
           <StatusBadge label={label(order.paymentStatus)} variant="secondary" />
         </div>
       </header>
+
+      {/* Extension Request Review Card (When customer requests duration extension) */}
+      {order.extension && order.extension.status === "PENDING" && (
+        <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/40 via-surface-raised to-surface-raised p-6 shadow-xl text-text">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">
+            <div className="flex items-start gap-3.5">
+              <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-500">
+                <Sparkles size={20} />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display font-bold text-lg text-amber-400">Customer Extension Request</h2>
+                  <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-bold text-amber-300 border border-amber-500/30">
+                    Action Required
+                  </span>
+                </div>
+                <p className="text-sm text-chalk">
+                  Customer requested to extend rental return date from <strong>{date(order.rentalEnd)}</strong> to{" "}
+                  <strong className="text-text">{date(order.extension.requestedEnd)}</strong> (+{order.extension.additionalDays} days).
+                </p>
+
+                <div className="flex flex-wrap gap-4 rounded-xl border border-border/50 bg-surface/60 p-3.5 text-xs">
+                  <div>
+                    <span className="text-chalk block">Additional Rental:</span>
+                    <strong className="text-text">{money(order.extension.additionalRentalFee)}</strong>
+                  </div>
+                  {Number(order.extension.additionalDeposit) > 0 && (
+                    <div>
+                      <span className="text-chalk block">Additional Deposit:</span>
+                      <strong className="text-text">{money(order.extension.additionalDeposit)}</strong>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-chalk block">Total Extension Amount:</span>
+                    <strong className="text-accent">{money(order.extension.additionalGrandTotal)}</strong>
+                  </div>
+                </div>
+
+                {order.extension.reason && (
+                  <p className="text-xs text-chalk italic">Customer note: "{order.extension.reason}"</p>
+                )}
+              </div>
+            </div>
+
+            {/* Approval / Rejection Action Controls */}
+            <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 min-w-48">
+              {!showRejectPrompt ? (
+                <>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={vendorNotes}
+                      onChange={(e) => setVendorNotes(e.target.value)}
+                      placeholder="Approval note (optional)"
+                      className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-xs text-text outline-none transition focus:border-accent"
+                    />
+                    <button
+                      onClick={handleApproveExtension}
+                      disabled={approvingExtension || busy}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-bold text-black transition hover:bg-accent/90 disabled:opacity-50"
+                    >
+                      <CheckCircle size={15} />
+                      {approvingExtension ? "Approving..." : "Approve Extension"}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowRejectPrompt(true)}
+                    disabled={approvingExtension || busy}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs font-bold text-red-500 transition hover:bg-red-500/20 disabled:opacity-50"
+                  >
+                    <XCircle size={15} />
+                    Reject Extension
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-2 rounded-xl border border-red-500/30 bg-surface p-3 text-xs">
+                  <label className="font-semibold text-red-400 block">Rejection Reason *</label>
+                  <textarea
+                    rows={2}
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="e.g. Asset booked for next customer..."
+                    className="w-full rounded-lg border border-border bg-surface-raised p-2 text-xs text-text outline-none transition focus:border-red-500 resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowRejectPrompt(false)}
+                      className="flex-1 rounded-lg border border-border py-1.5 text-xs font-semibold text-chalk hover:text-text"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleRejectExtension}
+                      disabled={rejectingExtension || !rejectReason.trim()}
+                      className="flex-1 rounded-lg bg-red-600 py-1.5 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {rejectingExtension ? "Rejecting..." : "Confirm Reject"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {order.extension && order.extension.status === "APPROVED" && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle size={16} className="text-emerald-500 shrink-0" />
+            <span>Rental duration extended to <strong>{date(order.rentalEnd)}</strong> (Approved by vendor)</span>
+          </div>
+          {order.extension.vendorNotes && (
+            <span className="text-chalk italic">Notes: {order.extension.vendorNotes}</span>
+          )}
+        </div>
+      )}
 
       <div className="mx-auto max-w-4xl space-y-12">
         {/* Vendor Pickup Journey Operations Control */}

@@ -32,6 +32,12 @@ import {
   rejectRentalOrderSchema,
   rentalOrderWorkflowParamsSchema,
 } from "../validations/rental-order-workflow.validation";
+import {
+  previewExtensionSchema,
+  requestExtensionSchema,
+  approveExtensionSchema,
+  rejectExtensionSchema,
+} from "../validations/extension.validation";
 
 const getAuthenticatedUser = (req: Request) => {
   if (!req.user) {
@@ -465,4 +471,65 @@ export const getRentalOrderInvoice = asyncHandler(
     });
   }
 );
+
+export const previewRentalOrderExtension = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = previewExtensionSchema.parse(req.body);
+    const preview = await rentalOrderService.previewExtension(orderId, payload, user);
+
+    res.json({
+      success: true,
+      message: "Extension preview calculated successfully",
+      data: { preview },
+    });
+  }
+);
+
+export const requestRentalOrderExtension = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = requestExtensionSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.requestExtension(orderId, payload, user);
+
+    res.json({
+      success: true,
+      message: "Extension requested successfully and sent to vendor for review",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const approveRentalOrderExtension = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = approveExtensionSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.approveExtension(orderId, payload, user);
+
+    res.json({
+      success: true,
+      message: "Rental order extension approved successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const rejectRentalOrderExtension = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = rejectExtensionSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.rejectExtension(orderId, payload, user);
+
+    res.json({
+      success: true,
+      message: "Rental order extension rejected",
+      data: { rentalOrder },
+    });
+  }
+);
+
 

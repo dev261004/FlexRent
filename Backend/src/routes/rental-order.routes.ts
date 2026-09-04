@@ -28,6 +28,10 @@ import {
   confirmPickupCustomer,
   getPickupTimeline,
   getRentalOrderInvoice,
+  previewRentalOrderExtension,
+  requestRentalOrderExtension,
+  approveRentalOrderExtension,
+  rejectRentalOrderExtension,
 } from "../controllers/rental-order.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
 
@@ -973,6 +977,144 @@ router.get(
  */
 router.get("/:id/invoice", getRentalOrderInvoice);
 router.get("/:id/invoice/download", getRentalOrderInvoice);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/preview-extension:
+ *   post:
+ *     summary: Preview extension pricing and availability for a rental order
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newRentalEnd
+ *             properties:
+ *               newRentalEnd:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       200:
+ *         description: Extension preview calculated successfully
+ */
+router.post("/:orderId/preview-extension", previewRentalOrderExtension);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/request-extension:
+ *   post:
+ *     summary: Customer requests an extension of rental duration before return
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newRentalEnd
+ *             properties:
+ *               newRentalEnd:
+ *                 type: string
+ *                 format: date-time
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Extension requested successfully
+ */
+router.post(
+  "/:orderId/request-extension",
+  requireRole(["CUSTOMER", "ADMIN"]),
+  requestRentalOrderExtension
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/approve-extension:
+ *   post:
+ *     summary: Vendor approves a pending rental extension request
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Rental extension approved successfully
+ */
+router.post(
+  "/:orderId/approve-extension",
+  requireRole(["VENDOR", "ADMIN"]),
+  approveRentalOrderExtension
+);
+
+/**
+ * @swagger
+ * /api/rental-orders/{orderId}/reject-extension:
+ *   post:
+ *     summary: Vendor rejects a pending rental extension request
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *             properties:
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Rental extension rejected
+ */
+router.post(
+  "/:orderId/reject-extension",
+  requireRole(["VENDOR", "ADMIN"]),
+  rejectRentalOrderExtension
+);
 
 export default router;
 

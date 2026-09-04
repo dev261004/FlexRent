@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Check, CheckCircle2, ChevronRight, Clipboard, Download, ExternalLink, FileText, MapPin, QrCode, ShieldCheck, Store, Truck, UserRound } from "lucide-react";
+import { ArrowLeft, AlertCircle, Check, CheckCircle2, ChevronRight, Clipboard, Download, ExternalLink, FileText, MapPin, QrCode, RotateCcw, ShieldCheck, Sparkles, Store, Truck, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getOrder, getPickupTimeline, confirmPickupCustomer, downloadRentalOrderInvoice, type RentalOrder, type PickupTimeline as PickupTimelineType } from "@/features/customer/api";
 import { getPaymentQR, getTimeline, submitUpiPayment, type PaymentQR } from "@/features/rentals/api";
 import { PickupTimeline } from "@/components/orders/PickupTimeline";
+import { RentalExtensionModal } from "@/components/orders/RentalExtensionModal";
+import { RentAgainModal } from "@/components/orders/RentAgainModal";
 
 const money = (value?: string | number | null) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value ?? 0));
@@ -99,6 +101,8 @@ export default function OrderDetailPage() {
   const [pickupTimelineData, setPickupTimelineData] = useState<PickupTimelineType | null>(null);
   const [confirmingPickup, setConfirmingPickup] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [isRentAgainModalOpen, setIsRentAgainModalOpen] = useState(false);
 
   const booking = useMemo(() => parseBookingNotes(order?.notes), [order?.notes]);
 
@@ -235,6 +239,26 @@ export default function OrderDetailPage() {
           <h1 className="font-display text-3xl font-bold tracking-tight text-text sm:text-4xl">Order #{order.rentalNumber.replace("ORD-", "")}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {["ACTIVE", "CONFIRMED", "PICKED_UP"].includes(order.status) && (
+            <button
+              onClick={() => setIsExtensionModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-accent/40 bg-accent/10 px-3.5 py-2 text-xs font-bold text-accent transition hover:bg-accent hover:text-black shadow-sm"
+              title="Extend rental duration"
+            >
+              <Sparkles size={15} />
+              Extend Rental
+            </button>
+          )}
+          {["ACTIVE", "RETURNED", "PICKED_UP"].includes(order.status) && (
+            <button
+              onClick={() => setIsRentAgainModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-raised px-3.5 py-2 text-xs font-bold text-text transition hover:border-accent hover:text-accent shadow-sm"
+              title="Rent this equipment again"
+            >
+              <RotateCcw size={14} className="text-accent" />
+              Rent Again
+            </button>
+          )}
           <button
             onClick={handleDownloadInvoice}
             disabled={downloadingInvoice}
@@ -248,6 +272,59 @@ export default function OrderDetailPage() {
           <StatusBadge label={label(order.paymentStatus)} variant="secondary" />
         </div>
       </header>
+
+      {/* Extension Status Alerts */}
+      {order.extension && order.extension.status === "PENDING" && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 shadow-sm text-text">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-500">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-base text-amber-600 dark:text-amber-400">Extension Request Pending Approval</h3>
+                <p className="mt-1 text-xs text-chalk">
+                  You requested to extend this rental until <strong>{date(order.extension.requestedEnd)}</strong> (+{order.extension.additionalDays} days).
+                </p>
+                <div className="mt-2 flex flex-wrap gap-4 text-xs">
+                  <span>Additional Rental Fee: <strong className="text-text">{money(order.extension.additionalRentalFee)}</strong></span>
+                  {Number(order.extension.additionalDeposit) > 0 && (
+                    <span>Additional Deposit: <strong className="text-text">{money(order.extension.additionalDeposit)}</strong></span>
+                  )}
+                  <span>Total Payable: <strong className="text-accent">{money(order.extension.additionalGrandTotal)}</strong></span>
+                </div>
+                {order.extension.reason && (
+                  <p className="mt-2 text-xs italic text-chalk">Note to vendor: "{order.extension.reason}"</p>
+                )}
+              </div>
+            </div>
+            <span className="inline-flex rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0 self-start">
+              Under Review
+            </span>
+          </div>
+        </div>
+      )}
+
+      {order.extension && order.extension.status === "APPROVED" && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+            <span>Rental duration successfully extended to <strong>{date(order.rentalEnd)}</strong></span>
+          </div>
+          {order.extension.vendorNotes && (
+            <span className="text-chalk italic">Vendor note: {order.extension.vendorNotes}</span>
+          )}
+        </div>
+      )}
+
+      {order.extension && order.extension.status === "REJECTED" && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-xs text-red-600 dark:text-red-400 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} className="text-red-500 shrink-0" />
+            <span>Extension request declined: {order.extension.rejectionReason || "Declined by vendor"} (Original return date remains {date(order.rentalEnd)})</span>
+          </div>
+        </div>
+      )}
 
       <div className="mx-auto max-w-4xl space-y-12">
         {/* Customer Confirm Pickup Action (if pickup in progress / arrived) */}
@@ -586,6 +663,19 @@ export default function OrderDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Modals */}
+      <RentalExtensionModal
+        order={order}
+        isOpen={isExtensionModalOpen}
+        onClose={() => setIsExtensionModalOpen(false)}
+        onSuccess={(updated) => setOrder(updated)}
+      />
+      <RentAgainModal
+        order={order}
+        isOpen={isRentAgainModalOpen}
+        onClose={() => setIsRentAgainModalOpen(false)}
+      />
     </div>
   );
 }

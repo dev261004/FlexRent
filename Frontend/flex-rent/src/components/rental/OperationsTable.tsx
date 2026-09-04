@@ -108,10 +108,24 @@ export function OperationsTable() {
                     </span>
                   )}
                 </td>
-                <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusStyle[order.status] ?? statusStyle.QUOTATION}`}>{label(order.status)}</span></td>
+                <td className="px-5 py-4">
+                  <div className="flex flex-col gap-1 items-start">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusStyle[order.status] ?? statusStyle.QUOTATION}`}>{label(order.status)}</span>
+                    {order.extension?.status === "PENDING" && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-500 border border-amber-500/30">
+                        Extension Pending
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-5 py-4"><span className="rounded-full bg-black/5 px-2.5 py-1 text-xs font-bold text-chalk dark:bg-white/10">{label(order.paymentStatus)}</span></td>
                 <td className="px-5 py-4">
                   <div className="flex flex-wrap gap-2">
+                    {order.extension?.status === "PENDING" && (
+                      <Link href={`/vendor/operations/${order.id}`} className="inline-flex items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-bold text-amber-500 hover:bg-amber-500 hover:text-black transition">
+                        Review Ext
+                      </Link>
+                    )}
                     {order.status === "QUOTATION" && (
                       <>
                         <button disabled={busy !== null} onClick={() => run(order, "accept", () => acceptOrder(order.id))} className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-black"><CheckCircle2 size={14}/>Accept</button>

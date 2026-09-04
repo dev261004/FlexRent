@@ -93,3 +93,13 @@ export async function downloadRentalOrderInvoice(orderId: string, autoPrint = tr
   }
 }
 
+export {
+  previewRentalOrderExtension,
+  requestRentalOrderExtension,
+  approveRentalOrderExtension,
+  rejectRentalOrderExtension,
+  type RentalOrderExtension,
+  type ExtensionPreviewResult,
+} from "@/features/customer/api";
+
+

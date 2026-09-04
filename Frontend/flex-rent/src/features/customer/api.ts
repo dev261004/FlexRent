@@ -8,6 +8,46 @@ export type Product = {
   rentalConfig?: { depositType: string; securityDeposit: string; rentalRateUnit?: string | null; minimumRentalDuration?: number | null; maximumRentalDuration?: number | null; minDurationUnit?: string | null; maxDurationUnit?: string | null } | null;
 };
 
+export type RentalOrderExtension = {
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedEnd: string;
+  originalEnd: string;
+  additionalDays: number;
+  additionalRentalFee: string;
+  additionalDeposit: string;
+  additionalGrandTotal: string;
+  reason?: string | null;
+  requestedAt: string;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  rejectionReason?: string | null;
+  vendorNotes?: string | null;
+};
+
+export type ExtensionPreviewResult = {
+  orderId: string;
+  rentalNumber: string;
+  currentRentalEnd: string;
+  newRentalEnd: string;
+  additionalDays: number;
+  currentSubtotal: string;
+  newSubtotal: string;
+  additionalRentalFee: string;
+  currentSecurityDeposit: string;
+  newSecurityDeposit: string;
+  additionalDeposit: string;
+  additionalGrandTotal: string;
+  newGrandTotal: string;
+  items: Array<{
+    productId: string;
+    quantity: number;
+    rentalPrice: string;
+    pricingRule: any;
+    discountPercentage: string | null;
+    subtotal: string;
+  }>;
+};
+
 export type RentalOrder = {
   id: string; rentalNumber: string; status: string; paymentStatus: string;
   customerId?: string; vendorId?: string; approvedAt?: string | null; createdAt?: string;
@@ -17,6 +57,7 @@ export type RentalOrder = {
   pickupNotes?: string | null; pickupConfirmedByCustomer?: boolean;
   pickupConfirmedAt?: string | null;
   rejectedAt?: string | null; rejectionReason?: string | null; notes?: string | null;
+  extension?: RentalOrderExtension | null;
   rentalStart: string; rentalEnd: string; grandTotal: string; subtotal: string;
   securityDepositAmount: string; lateFee?: string;
   securityDeposit?: { id: string; amount: string; refundedAmount: string; deductedAmount: string; status: string; collectedAt?: string | null; refundedAt?: string | null } | null;
@@ -207,4 +248,25 @@ export async function downloadRentalOrderInvoice(orderId: string, autoPrint = tr
     document.body.removeChild(link);
   }
 }
+
+export async function previewRentalOrderExtension(orderId: string, newRentalEnd: string) {
+  const response = await api.post(`/rental-orders/${orderId}/preview-extension`, { newRentalEnd });
+  return response.data.data.preview as ExtensionPreviewResult;
+}
+
+export async function requestRentalOrderExtension(orderId: string, payload: { newRentalEnd: string; reason?: string }) {
+  const response = await api.post(`/rental-orders/${orderId}/request-extension`, payload);
+  return response.data.data.rentalOrder as RentalOrder;
+}
+
+export async function approveRentalOrderExtension(orderId: string, payload?: { notes?: string }) {
+  const response = await api.post(`/rental-orders/${orderId}/approve-extension`, payload ?? {});
+  return response.data.data.rentalOrder as RentalOrder;
+}
+
+export async function rejectRentalOrderExtension(orderId: string, payload: { reason: string }) {
+  const response = await api.post(`/rental-orders/${orderId}/reject-extension`, payload);
+  return response.data.data.rentalOrder as RentalOrder;
+}
+
 
