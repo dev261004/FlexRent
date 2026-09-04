@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Check, CheckCircle2, ChevronRight, MapPin, Store, Truck, UserRound } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, ChevronRight, Download, FileText, MapPin, Store, Truck, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getOrder, getPickupTimeline, type RentalOrder, type PickupTimeline as PickupTimelineType } from "@/features/customer/api";
+import { getOrder, getPickupTimeline, downloadRentalOrderInvoice, type RentalOrder, type PickupTimeline as PickupTimelineType } from "@/features/customer/api";
 import { getTimeline } from "@/features/rentals/api";
 import { PickupJourneyControl } from "@/components/vendor/PickupJourneyControl";
 import { PickupTimeline } from "@/components/orders/PickupTimeline";
@@ -93,6 +93,7 @@ export default function VendorOrderDetailPage() {
   const booking = useMemo(() => parseBookingNotes(order?.notes), [order?.notes]);
 
   const [pickupTimelineData, setPickupTimelineData] = useState<PickupTimelineType | null>(null);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -109,6 +110,19 @@ export default function VendorOrderDetailPage() {
       })
       .catch(() => setError("Could not load order details."))
       .finally(() => setLoading(false));
+  };
+
+  const handleDownloadInvoice = async () => {
+    if (!order) return;
+    setDownloadingInvoice(true);
+    setError("");
+    try {
+      await downloadRentalOrderInvoice(order.id, true);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to download invoice.");
+    } finally {
+      setDownloadingInvoice(false);
+    }
   };
 
   useEffect(load, [orderId]);
@@ -172,7 +186,16 @@ export default function VendorOrderDetailPage() {
           <p className="mb-1 text-sm font-medium text-chalk">Order Date: {date(order.createdAt || order.rentalStart).split(',')[0]}</p>
           <h1 className="font-display text-3xl font-bold tracking-tight text-text sm:text-4xl">Order #{order.rentalNumber.replace("ORD-", "")}</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleDownloadInvoice}
+            disabled={downloadingInvoice}
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-raised px-3.5 py-2 text-xs font-bold text-text transition hover:border-accent hover:text-accent shadow-sm disabled:opacity-50"
+            title="Download tax invoice"
+          >
+            <FileText size={15} className="text-accent" />
+            {downloadingInvoice ? "Generating..." : "Download Invoice"}
+          </button>
           <StatusBadge label={label(order.status)} variant="primary" />
           <StatusBadge label={label(order.paymentStatus)} variant="secondary" />
         </div>
@@ -350,6 +373,14 @@ export default function VendorOrderDetailPage() {
                   <span className="font-semibold text-text">Total</span>
                   <span className="font-display text-lg font-bold text-text">{money(order.grandTotal)}</span>
                 </div>
+                <button
+                  onClick={handleDownloadInvoice}
+                  disabled={downloadingInvoice}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-xs font-bold text-text transition hover:border-accent hover:text-accent disabled:opacity-50"
+                >
+                  <Download size={15} className="text-accent" />
+                  {downloadingInvoice ? "Generating..." : "Download Tax Invoice (PDF / HTML)"}
+                </button>
               </div>
               
               {/* Payment History */}

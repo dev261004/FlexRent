@@ -67,3 +67,29 @@ export async function refundDeposit(orderId: string) {
   const response = await api.post(`/rental-orders/${orderId}/refund-deposit`, {});
   return response.data.data;
 }
+
+export async function getRentalOrderInvoice(orderId: string) {
+  const response = await api.get(`/rental-orders/${orderId}/invoice`);
+  return response.data.data.invoice;
+}
+
+export async function downloadRentalOrderInvoice(orderId: string, autoPrint = true) {
+  const response = await api.get(`/rental-orders/${orderId}/invoice`, {
+    params: { format: "html", print: autoPrint ? "true" : undefined },
+    responseType: "text",
+    headers: { Accept: "text/html" },
+  });
+
+  const blob = new Blob([response.data], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank");
+  if (!win) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Invoice-${orderId}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+}
+

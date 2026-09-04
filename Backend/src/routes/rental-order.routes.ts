@@ -27,6 +27,7 @@ import {
   completePickup,
   confirmPickupCustomer,
   getPickupTimeline,
+  getRentalOrderInvoice,
 } from "../controllers/rental-order.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
 
@@ -931,4 +932,47 @@ router.get(
   getPickupTimeline
 );
 
+/**
+ * @swagger
+ * /api/rental-orders/{id}/invoice:
+ *   get:
+ *     summary: Get rental order tax invoice
+ *     description: Returns invoice JSON metadata by default, or print-ready HTML if format=html query parameter or Accept text/html header is present.
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: format
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [json, html]
+ *       - in: query
+ *         name: print
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *       - in: query
+ *         name: download
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *     responses:
+ *       200:
+ *         description: Invoice generated successfully
+ *       403:
+ *         description: Forbidden - only owning customer, vendor, or admin
+ *       404:
+ *         description: Rental order not found
+ */
+router.get("/:id/invoice", getRentalOrderInvoice);
+router.get("/:id/invoice/download", getRentalOrderInvoice);
+
 export default router;
+

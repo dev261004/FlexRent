@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { AppError, asyncHandler } from "../middleware/error.middleware";
 import { rentalOrderService } from "../services/rental-order.service";
+import { invoiceService } from "../services/invoice.service";
 import {
   pickupOrderSchema,
   confirmOrderSchema,
@@ -438,3 +439,132 @@ export const rejectPayment = asyncHandler(
     });
   }
 );
+
+export const schedulePickup = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = schedulePickupSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.schedulePickup(orderId, payload, user);
+
+    res.json({
+      success: true,
+      message: "Pickup scheduled successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const startPickup = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const rentalOrder = await rentalOrderService.startPickup(orderId, user);
+
+    res.json({
+      success: true,
+      message: "Pickup journey started successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const arrivePickup = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const rentalOrder = await rentalOrderService.arrivePickup(orderId, user);
+
+    res.json({
+      success: true,
+      message: "Vendor arrival recorded successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const updatePickupEta = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = updateEtaSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.updatePickupEta(orderId, payload, user);
+
+    res.json({
+      success: true,
+      message: "Pickup ETA updated successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const completePickup = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = completePickupSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.completePickup(orderId, payload, user);
+
+    res.json({
+      success: true,
+      message: "Pickup handed over successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const confirmPickupCustomer = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const payload = confirmPickupCustomerSchema.parse(req.body);
+    const rentalOrder = await rentalOrderService.confirmPickupCustomer(orderId, payload, user);
+
+    res.json({
+      success: true,
+      message: "Pickup confirmed and rental activated successfully",
+      data: { rentalOrder },
+    });
+  }
+);
+
+export const getPickupTimeline = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { orderId } = pickupReturnParamsSchema.parse(req.params);
+    const timeline = await rentalOrderService.getPickupTimeline(orderId, user);
+
+    res.json({
+      success: true,
+      message: "Pickup timeline fetched successfully",
+      data: { timeline },
+    });
+  }
+);
+
+export const getRentalOrderInvoice = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = rentalOrderParamsSchema.parse(req.params);
+    const format = req.query.format as string | undefined;
+    const invoice = await invoiceService.getInvoiceData(id, user);
+
+    if (format === "html" || req.headers.accept?.includes("text/html") || req.query.download === "true") {
+      const autoPrint = req.query.print === "true" || req.query.download === "true";
+      const html = invoiceService.generateInvoiceHtml(invoice, autoPrint);
+
+      if (req.query.download === "true") {
+        res.setHeader("Content-Disposition", `attachment; filename="Invoice-${invoice.orderNumber}.html"`);
+      }
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(html);
+    }
+
+    res.json({
+      success: true,
+      message: "Invoice fetched successfully",
+      data: { invoice },
+    });
+  }
+);
+
