@@ -269,4 +269,101 @@ export async function rejectRentalOrderExtension(orderId: string, payload: { rea
   return response.data.data.rentalOrder as RentalOrder;
 }
 
+export type CartCheckoutItemInput = {
+  productId: string;
+  variantId?: string;
+  assetId?: string;
+  quantity: number;
+  rentalStart?: string;
+  rentalEnd?: string;
+};
+
+export type CartCheckoutPreviewResult = {
+  subtotal: string;
+  securityDepositAmount: string;
+  grandTotal: string;
+  itemCount: number;
+  items: Array<{
+    productId: string;
+    productName: string;
+    variantId: string | null;
+    assetId: string | null;
+    vendorId: string;
+    vendorName: string;
+    quantity: number;
+    rentalStart: string;
+    rentalEnd: string;
+    durationDays: number;
+    durationValue: number;
+    durationUnit: string;
+    baseRate: string;
+    baseRentalAmount: string;
+    pricingRule: any;
+    discountPercentage: string | null;
+    discountAmount: string;
+    rentalAmount: string;
+    deposit: string;
+    subtotal: string;
+    itemTotal: string;
+  }>;
+  vendorGroups: Array<{
+    vendorId: string;
+    vendorName: string;
+    subtotal: string;
+    securityDepositAmount: string;
+    grandTotal: string;
+    items: any[];
+  }>;
+};
+
+export type CartCheckoutPayload = {
+  fulfillmentMethod: "HOME_DELIVERY" | "STORE_PICKUP";
+  deliveryAddress?: {
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+  pickupAddress?: {
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+  rentalStart?: string;
+  rentalEnd?: string;
+  paymentMethod: "CASH" | "CARD" | "UPI" | "BANK_TRANSFER" | "ONLINE";
+  paymentDetails?: {
+    transactionId?: string;
+    paymentProof?: string;
+    notes?: string;
+  };
+  notes?: string;
+  items: CartCheckoutItemInput[];
+};
+
+export type CartCheckoutResponse = {
+  orders: RentalOrder[];
+  orderCount: number;
+  rentalNumbers: string[];
+};
+
+export async function previewCartCheckout(payload: {
+  rentalStart?: string;
+  rentalEnd?: string;
+  items: CartCheckoutItemInput[];
+}): Promise<CartCheckoutPreviewResult> {
+  const response = await api.post("/rental-orders/checkout-preview", payload);
+  return response.data.data.preview as CartCheckoutPreviewResult;
+}
+
+export async function checkoutCart(payload: CartCheckoutPayload): Promise<CartCheckoutResponse> {
+  const response = await api.post("/rental-orders/checkout", payload);
+  return response.data.data as CartCheckoutResponse;
+}
+
 

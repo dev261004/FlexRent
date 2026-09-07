@@ -1,172 +1,291 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import toast from "react-hot-toast";
+import { Plus, Trash2, RefreshCw, Star, Tag, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Panel } from "@/components/admin/Panel";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Combobox } from "@/components/ui/Combobox";
-import { MOCK_PRICELISTS } from "@/features/admin/data/mockPricelists";
-import { MOCK_PRODUCTS } from "@/features/admin/data/mockProducts";
-import type { AdminPricelist } from "@/features/admin/types";
+import {
+  listPriceLists,
+  createPriceList,
+  deletePriceList,
+  type PriceList,
+} from "@/features/pricing/api";
+import { getProducts, type Product } from "@/features/customer/api";
 
 const schema = z.object({
-  name: z.string().min(2, "Name is required"),
-  productId: z.string().min(1, "Product is required"),
-  dailyRate: z.number().min(0),
-  weeklyRate: z.number().min(0),
-  monthlyRate: z.number().min(0),
+  name: z.string().trim().min(2, "Name must be at least 2 characters"),
+  description: z.string().optional(),
+  isDefault: z.boolean().default(false),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-const productOptions = MOCK_PRODUCTS.map((p) => ({
-  value: p.id,
-  label: p.name,
-}));
-
 export default function AdminPricelistsPage() {
-  const [pricelists, setPricelists] =
-    useState<AdminPricelist[]>(MOCK_PRICELISTS);
+  const [pricelists, setPricelists] = useState<PriceList[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     reset,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
-      productId: "",
-      dailyRate: 0,
-      weeklyRate: 0,
-      monthlyRate: 0,
+      description: "",
+      isDefault: false,
     },
   });
 
-  const productId = watch("productId");
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [plData, prodData] = await Promise.allSettled([
+        listPriceLists(),
+        getProducts(),
+      ]);
 
-  const onSubmit = (data: FormValues) => {
-    const product = MOCK_PRODUCTS.find((p) => p.id === data.productId);
-    const next: AdminPricelist = {
-      id: `pl${Date.now()}`,
-      name: data.name,
-      productId: data.productId,
-      productName: product?.name ?? "Unknown",
-      dailyRate: data.dailyRate,
-      weeklyRate: data.weeklyRate,
-      monthlyRate: data.monthlyRate,
-    };
-    setPricelists((prev) => [next, ...prev]);
-    reset();
-    setShowForm(false);
+      if (plData.status === "fulfilled" && Array.isArray(plData.value)) {
+        setPricelists(plData.value);
+      }
+
+      if (prodData.status === "fulfilled" && prodData.value?.products) {
+        setProducts(prodData.value.products);
+      }
+    } catch {
+      toast.error("Failed to load pricelists");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const onSubmit = async (data: FormValues) => {
+    try {
+      setIsSubmitting(true);
+      const created = await createPriceList({
+        name: data.name,
+        description: data.description || null,
+        isDefault: data.isDefault,
+        isActive: true,
+      });
+
+      toast.success(`Pricelist "${created.name}" created successfully!`);
+      setPricelists((prev) => {
+        const nextList = data.isDefault
+          ? prev.map((p) => ({ ...p, isDefault: false }))
+          : [...prev];
+        return [created, ...nextList];
+      });
+
+      reset();
+      setShowForm(false);
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Failed to create pricelist";
+      toast.error(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete pricelist "${name}"?`)) {
+      return;
+    }
+
+    try {
+      setDeletingId(id);
+      await deletePriceList(id);
+      toast.success(`Deleted pricelist "${name}"`);
+      setPricelists((prev) => prev.filter((p) => p.id !== id));
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Failed to delete pricelist";
+      toast.error(errorMsg);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
     <div>
       <PageHeader
         title="Pricelists"
-        description="Create and maintain product pricelists (daily, weekly, monthly)."
+        description="Create and configure active pricing schedules and discount rules for catalog products."
         action={
-          <div className="w-full sm:w-44">
-            <Button type="button" onClick={() => setShowForm((v) => !v)}>
-              {showForm ? "Cancel" : "+ Create Pricelist"}
-            </Button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={fetchData}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2.5 text-xs font-semibold text-chalk hover:text-text hover:bg-white/5 transition"
+              title="Refresh pricelists"
+            >
+              <RefreshCw size={14} className={isLoading ? "animate-spin text-accent" : ""} />
+              <span>Refresh</span>
+            </button>
+            <div className="w-full sm:w-44">
+              <Button type="button" onClick={() => setShowForm((v) => !v)}>
+                {showForm ? "Cancel" : "+ Create Pricelist"}
+              </Button>
+            </div>
           </div>
         }
       />
 
       {showForm && (
-        <Panel className="mb-6 p-5">
+        <Panel className="mb-6 p-6 border-accent/30 shadow-xl">
           <h2 className="mb-4 font-display text-lg font-semibold text-text">
-            New pricelist
+            New Pricelist
           </h2>
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="grid gap-4 sm:grid-cols-2"
-          >
-            <Input
-              id="pl-name"
-              label="Pricelist name"
-              placeholder="Camera Standard"
-              error={errors.name?.message}
-              {...register("name")}
-            />
-            <Combobox
-              label="Product"
-              options={productOptions}
-              value={productId}
-              onChange={(v) =>
-                setValue("productId", v, { shouldValidate: true })
-              }
-              placeholder="Link product"
-              error={errors.productId?.message}
-            />
-            <Input
-              id="daily"
-              type="number"
-              label="Daily rate (₹)"
-              error={errors.dailyRate?.message}
-              {...register("dailyRate", { valueAsNumber: true })}
-            />
-            <Input
-              id="weekly"
-              type="number"
-              label="Weekly rate (₹)"
-              error={errors.weeklyRate?.message}
-              {...register("weeklyRate", { valueAsNumber: true })}
-            />
-            <Input
-              id="monthly"
-              type="number"
-              label="Monthly rate (₹)"
-              error={errors.monthlyRate?.message}
-              {...register("monthlyRate", { valueAsNumber: true })}
-            />
-            <div className="flex items-end">
-              <div className="w-full sm:w-48">
-                <Button type="submit">Save pricelist</Button>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                id="pl-name"
+                label="Pricelist Name"
+                placeholder="e.g. Weekend Special, Peak Season 2026"
+                error={errors.name?.message}
+                {...register("name")}
+              />
+
+              <Input
+                id="pl-desc"
+                label="Description (Optional)"
+                placeholder="e.g. Standard rates for weekend rentals"
+                {...register("description")}
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                id="pl-default"
+                type="checkbox"
+                className="rounded border-border bg-surface text-accent focus:ring-accent"
+                {...register("isDefault")}
+              />
+              <label htmlFor="pl-default" className="text-xs font-medium text-text cursor-pointer">
+                Set as Default Organization Pricelist
+              </label>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <div className="w-44">
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Creating..." : "Save Pricelist"}
+                </Button>
               </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowForm(false)}
+              >
+                Cancel
+              </Button>
             </div>
           </form>
         </Panel>
       )}
 
       <Panel>
+        <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-2">
+            <Tag size={16} className="text-accent" />
+            <h2 className="text-sm font-semibold text-text">Configured Pricelists</h2>
+            <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs text-chalk">
+              {pricelists.length}
+            </span>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/5 text-left text-chalk">
-                <th className="px-5 py-3 font-medium">Name</th>
-                <th className="px-5 py-3 font-medium">Product</th>
-                <th className="px-5 py-3 font-medium">Daily</th>
-                <th className="px-5 py-3 font-medium">Weekly</th>
-                <th className="px-5 py-3 font-medium">Monthly</th>
+              <tr className="border-b border-border bg-black/[0.02] text-left text-xs uppercase tracking-wider text-chalk dark:bg-white/[0.02]">
+                <th className="px-5 py-3.5 font-semibold sm:px-6">Pricelist Name</th>
+                <th className="px-5 py-3.5 font-semibold">Description</th>
+                <th className="px-5 py-3.5 font-semibold text-center">Rules Configured</th>
+                <th className="px-5 py-3.5 font-semibold text-center">Status</th>
+                <th className="px-5 py-3.5 font-semibold text-right sm:px-6">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {pricelists.map((pl) => (
-                <tr key={pl.id} className="border-t border-white/5">
-                  <td className="px-5 py-3 font-medium text-text">{pl.name}</td>
-                  <td className="px-5 py-3 text-chalk">{pl.productName}</td>
-                  <td className="px-5 py-3 text-text">
-                    ₹{pl.dailyRate.toLocaleString()}
-                  </td>
-                  <td className="px-5 py-3 text-text">
-                    ₹{pl.weeklyRate.toLocaleString()}
-                  </td>
-                  <td className="px-5 py-3 text-text">
-                    ₹{pl.monthlyRate.toLocaleString()}
+            <tbody className="divide-y divide-border/60">
+              {isLoading && pricelists.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-xs text-chalk">
+                    <RefreshCw size={20} className="mx-auto mb-2 animate-spin text-accent" />
+                    Loading pricelists...
                   </td>
                 </tr>
-              ))}
+              ) : pricelists.length > 0 ? (
+                pricelists.map((pl) => (
+                  <tr key={pl.id} className="transition hover:bg-accent/[0.035]">
+                    <td className="px-5 py-4 font-medium text-text sm:px-6">
+                      <div className="flex items-center gap-2">
+                        <span>{pl.name}</span>
+                        {pl.isDefault && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-400 border border-amber-500/20">
+                            <Star size={10} className="fill-amber-400" /> Default
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-xs text-chalk">
+                      {pl.description || "—"}
+                    </td>
+                    <td className="px-5 py-4 text-center font-mono text-xs text-text">
+                      <span className="rounded-lg bg-surface px-2.5 py-1 border border-border">
+                        {pl.ruleCount ?? 0} rules
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          pl.isActive
+                            ? "bg-green-500/15 text-green-700 dark:text-green-300"
+                            : "bg-black/5 text-chalk dark:bg-white/10"
+                        }`}
+                      >
+                        {pl.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-right sm:px-6">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(pl.id, pl.name)}
+                        disabled={deletingId === pl.id}
+                        className="rounded-lg p-2 text-chalk hover:bg-danger/10 hover:text-danger transition"
+                        title="Delete pricelist"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-xs text-chalk">
+                    No pricelists configured yet. Click "+ Create Pricelist" to add your first rate schedule.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

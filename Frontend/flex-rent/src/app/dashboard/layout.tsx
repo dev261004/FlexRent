@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Moon, Search, Sun } from "lucide-react";
+import { Moon, Search, Sun, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { useTheme } from "@/components/admin/ThemeProvider";
 import { CustomerSidebar } from "@/components/customer/CustomerSidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { CartDrawer } from "@/components/cart/CartDrawer";
 
 export default function DashboardLayout({
   children,
@@ -15,6 +17,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   const { user, isLoading } = useAuth();
+  const { itemCount, openCart } = useCart();
   const router = useRouter();
   const pathname = usePathname();
   const { theme, toggleTheme, ready } = useTheme();
@@ -77,6 +80,20 @@ export default function DashboardLayout({
             <NotificationBell basePath="/dashboard" />
           </div>
 
+          <button
+            type="button"
+            onClick={openCart}
+            className="relative rounded-lg p-2 text-chalk transition-colors hover:bg-black/5 hover:text-text dark:hover:bg-white/5"
+            aria-label="Open cart"
+          >
+            <ShoppingBag size={18} />
+            {itemCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-black shadow-sm">
+                {itemCount}
+              </span>
+            )}
+          </button>
+
           {user && (
             <div className="flex items-center gap-3 border-l border-border pl-3 sm:pl-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-black">
@@ -91,7 +108,12 @@ export default function DashboardLayout({
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-[1600px]"><CustomerSidebar collapsed={collapsed} setCollapsed={handleSetCollapsed} /><main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-8">{children}</main></div>
+      <div className="mx-auto flex max-w-[1600px]">
+        <CustomerSidebar collapsed={collapsed} setCollapsed={handleSetCollapsed} />
+        <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-8">{children}</main>
+      </div>
+
+      <CartDrawer />
     </div>
   );
 }

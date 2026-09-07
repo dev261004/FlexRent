@@ -1,4 +1,4 @@
-export type ProductStatus = "available" | "rented" | "maintenance";
+export type ProductStatus = "available" | "rented" | "maintenance" | "ACTIVE" | "DRAFT" | "ARCHIVED";
 
 export interface AdminProduct {
   id: string;
@@ -12,23 +12,33 @@ export interface AdminProduct {
 export interface AdminPricelist {
   id: string;
   name: string;
-  productId: string;
-  productName: string;
-  dailyRate: number;
-  weeklyRate: number;
-  monthlyRate: number;
+  description?: string | null;
+  isDefault?: boolean;
+  isActive?: boolean;
+  ruleCount?: number;
+  productId?: string;
+  productName?: string;
+  dailyRate?: number;
+  weeklyRate?: number;
+  monthlyRate?: number;
 }
 
 export interface AdminRentalPeriod {
   id: string;
   name: string;
-  minDays: number;
-  maxDays: number;
-  multiplier: number;
+  unit: "HOUR" | "DAY" | "NIGHT" | "WEEK" | "MONTH";
+  duration: number;
+  isDefault?: boolean;
+  isActive?: boolean;
+  minDays?: number;
+  maxDays?: number;
+  multiplier?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export type UserRole = "customer" | "vendor" | "admin";
-export type UserStatus = "active" | "inactive";
+export type UserRole = "CUSTOMER" | "VENDOR" | "ADMIN" | "customer" | "vendor" | "admin";
+export type UserStatus = "ACTIVE" | "DISABLED" | "active" | "inactive";
 
 export interface AdminUser {
   id: string;
@@ -36,9 +46,30 @@ export interface AdminUser {
   email: string;
   role: UserRole;
   status: UserStatus;
+  firstName?: string;
+  lastName?: string | null;
+  phone?: string | null;
+  companyName?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export type OperationStatus = "scheduled_pickup" | "picked_up" | "due_return" | "returned" | "overdue";
+export type OperationStatus =
+  | "scheduled_pickup"
+  | "picked_up"
+  | "due_return"
+  | "returned"
+  | "overdue"
+  | "QUOTATION"
+  | "CONFIRMED"
+  | "PICKUP_SCHEDULED"
+  | "PICKUP_IN_PROGRESS"
+  | "PICKED_UP"
+  | "ACTIVE"
+  | "RETURN_SCHEDULED"
+  | "RETURN_IN_PROGRESS"
+  | "RETURNED"
+  | "CANCELLED";
 
 export interface AdminOperation {
   id: string;
@@ -47,6 +78,7 @@ export interface AdminOperation {
   product: string;
   scheduledAt: string;
   status: OperationStatus;
+  grandTotal?: string;
 }
 
 export interface OrgRentalSettings {
@@ -95,4 +127,24 @@ export interface ListQuotationTemplatesParams {
   limit?: number;
   sortBy?: "name" | "createdAt" | "updatedAt" | "validityDays";
   sortOrder?: "asc" | "desc";
+}
+
+export interface RentalOperationsDashboardMetrics {
+  activeRentals: number;
+  rentalsDueToday: number;
+  upcomingPickups: number;
+  upcomingReturns: number;
+  overdueRentals: number;
+  revenueFromRentals: string;
+  securityDepositsHeld: string;
+  lateFeeCollection: string;
+}
+
+export interface RentalOperationsDashboardData {
+  range: {
+    type: string;
+    from: string;
+    to: string;
+  };
+  metrics: RentalOperationsDashboardMetrics;
 }
