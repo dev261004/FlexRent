@@ -26,6 +26,8 @@ import {
   rentalOrderParamsSchema,
   updateRentalOrderSchema,
   previewRentalOrderSchema,
+  checkoutPreviewSchema,
+  checkoutRentalOrderSchema,
 } from "../validations/rental-order.validation";
 import {
   acceptRentalOrderSchema,
@@ -528,6 +530,34 @@ export const rejectRentalOrderExtension = asyncHandler(
       success: true,
       message: "Rental order extension rejected",
       data: { rentalOrder },
+    });
+  }
+);
+
+export const previewCheckout = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const payload = checkoutPreviewSchema.parse(req.body);
+    const preview = await rentalOrderService.previewCheckout(payload, user);
+
+    res.json({
+      success: true,
+      message: "Cart checkout preview calculated successfully",
+      data: { preview },
+    });
+  }
+);
+
+export const checkoutRentalOrders = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = getAuthenticatedUser(req);
+    const payload = checkoutRentalOrderSchema.parse(req.body);
+    const result = await rentalOrderService.checkoutRentalOrders(payload, user);
+
+    res.status(201).json({
+      success: true,
+      message: `${result.orderCount} rental order(s) created successfully from cart`,
+      data: result,
     });
   }
 );

@@ -10,6 +10,8 @@ import {
   ListRentalOrdersQuery,
   UpdateRentalOrderInput,
   PreviewRentalOrderInput,
+  CheckoutPreviewInput,
+  CheckoutRentalOrderInput,
 } from "../validations/rental-order.validation";
 import { AddressInput } from "../validations/vendor.validation";
 import {
@@ -220,7 +222,373 @@ export class RentalOrderService {
     };
   }
 
+  async previewCheckout(payload: CheckoutPreviewInput, user: ProductRequester) {
+    const priceList = await rentalOrderRepository.findActivePriceList();
+    const calculatedItems: any[] = [];
+    const vendorMap = new Map<
+      string,
+      { vendorId: string; vendorName: string; subtotal: number; deposit: number; items: any[] }
+    >();
+
+    for (let i = 0; i < payload.items.length; i++) {
+      const item = payload.items[i];
+      const rentalStart = item.rentalStart ?? payload.rentalStart;
+      const rentalEnd = item.rentalEnd ?? payload.rentalEnd;
+
+      if (!rentalStart || !rentalEnd) {
+        throw new AppError(400, `Rental dates are required for cart item #${i + 1}`);
+      }
+      this.assertDateRange(rentalStart, rentalEnd);
+
+      const product = await rentalOrderRepository.findProductById(item.productId);
+      if (!product) throw new AppError(404, `Product not found for item #${i + 1}`);
+      if (product.status !== "ACTIVE") {
+        throw new AppError(400, `Product "${product.name}" is not active for rental`);
+      }
+      if (!product.vendorId) {
+        throw new AppError(400, `Product "${product.name}" does not have an assigned vendor`);
+      }
+
+      const variant = item.variantId
+        ? product.variants.find((v: any) => v.id === item.variantId)
+        : null;
+
+      await this.assertAvailability(item, product, rentalStart, rentalEnd);
+
+      const durationInfo = this.calculateRentalDurationAndValidate(
+        product.rentalConfig,
+        rentalStart,
+        rentalEnd
+      );
+      const baseRate = toNumber(variant?.salesPrice ?? product.salesPrice);
+      const baseRentalAmount = baseRate * durationInfo.value * item.quantity;
+      const ruleCalculation = this.applyDurationPriceRule(
+        baseRentalAmount,
+        baseRate,
+        item,
+        product,
+        priceList,
+        durationInfo
+      );
+      const deposit = this.calculateDeposit(
+        product.rentalConfig,
+        ruleCalculation.rentalAmount,
+        item.quantity
+      );
+
+      const vendorName = product.vendor
+        ? `${product.vendor.firstName ?? ""} ${product.vendor.lastName ?? ""}`.trim() ||
+          product.vendor.companyName ||
+          "Vendor"
+        : "Vendor";
+
+      const calculatedItem = {
+        productId: item.productId,
+        productName: product.name,
+        variantId: item.variantId ?? null,
+        assetId: item.assetId ?? null,
+        vendorId: product.vendorId,
+        vendorName,
+        quantity: item.quantity,
+        rentalStart: rentalStart.toISOString(),
+        rentalEnd: rentalEnd.toISOString(),
+        durationDays: durationInfo.days,
+        durationValue: durationInfo.value,
+        durationUnit: durationInfo.unit,
+        baseRate: decimalToString(baseRate),
+        baseRentalAmount: decimalToString(baseRentalAmount),
+        pricingRule: ruleCalculation.rule,
+        discountPercentage: ruleCalculation.discountPercentage
+          ? decimalToString(ruleCalculation.discountPercentage)
+          : null,
+        discountAmount: decimalToString(ruleCalculation.discountAmount),
+        rentalAmount: decimalToString(ruleCalculation.rentalAmount),
+        deposit: decimalToString(deposit),
+        subtotal: decimalToString(ruleCalculation.rentalAmount),
+        itemTotal: decimalToString(ruleCalculation.rentalAmount + deposit),
+      };
+
+      calculatedItems.push(calculatedItem);
+
+      if (!vendorMap.has(product.vendorId)) {
+        vendorMap.set(product.vendorId, {
+          vendorId: product.vendorId,
+          vendorName,
+          subtotal: 0,
+          deposit: 0,
+          items: [],
+        });
+      }
+      const vendorGroup = vendorMap.get(product.vendorId)!;
+      vendorGroup.subtotal += ruleCalculation.rentalAmount;
+      vendorGroup.deposit += deposit;
+      vendorGroup.items.push(calculatedItem);
+    }
+
+    const totalSubtotal = calculatedItems.reduce(
+      (sum, item) => sum + Number(item.subtotal),
+      0
+    );
+    const totalDeposit = calculatedItems.reduce(
+      (sum, item) => sum + Number(item.deposit),
+      0
+    );
+    const grandTotal = totalSubtotal + totalDeposit;
+
+    const vendorGroups = Array.from(vendorMap.values()).map((vg) => ({
+      vendorId: vg.vendorId,
+      vendorName: vg.vendorName,
+      subtotal: decimalToString(vg.subtotal),
+      securityDepositAmount: decimalToString(vg.deposit),
+      grandTotal: decimalToString(vg.subtotal + vg.deposit),
+      items: vg.items,
+    }));
+
+    return {
+      subtotal: decimalToString(totalSubtotal),
+      securityDepositAmount: decimalToString(totalDeposit),
+      grandTotal: decimalToString(grandTotal),
+      itemCount: payload.items.reduce((sum, item) => sum + item.quantity, 0),
+      items: calculatedItems,
+      vendorGroups,
+    };
+  }
+
+  async checkoutRentalOrders(
+    payload: CheckoutRentalOrderInput,
+    user: ProductRequester
+  ) {
+    const customerId = user.id;
+    const priceList = await rentalOrderRepository.findActivePriceList();
+
+    type PreparedCartItem = {
+      item: CheckoutRentalOrderInput["items"][number];
+      product: any;
+      variant: any;
+      rentalStart: Date;
+      rentalEnd: Date;
+      durationInfo: any;
+      baseRate: number;
+      rentalAmount: number;
+      deposit: number;
+    };
+
+    const vendorGroupsMap = new Map<
+      string,
+      { vendorId: string; items: PreparedCartItem[] }
+    >();
+
+    for (let i = 0; i < payload.items.length; i++) {
+      const item = payload.items[i];
+      const rentalStart = item.rentalStart ?? payload.rentalStart;
+      const rentalEnd = item.rentalEnd ?? payload.rentalEnd;
+
+      if (!rentalStart || !rentalEnd) {
+        throw new AppError(400, `Rental dates are required for cart item #${i + 1}`);
+      }
+      this.assertDateRange(rentalStart, rentalEnd);
+
+      const product = await rentalOrderRepository.findProductById(item.productId);
+      if (!product) throw new AppError(404, `Product not found for item #${i + 1}`);
+      if (product.status !== "ACTIVE") {
+        throw new AppError(400, `Product "${product.name}" is not active for rental`);
+      }
+      if (!product.vendorId) {
+        throw new AppError(400, `Product "${product.name}" has no assigned vendor`);
+      }
+
+      const variant = item.variantId
+        ? product.variants.find((v: any) => v.id === item.variantId)
+        : null;
+
+      await this.assertAvailability(item, product, rentalStart, rentalEnd);
+
+      const durationInfo = this.calculateRentalDurationAndValidate(
+        product.rentalConfig,
+        rentalStart,
+        rentalEnd
+      );
+      const baseRate = toNumber(variant?.salesPrice ?? product.salesPrice);
+      const baseRentalAmount = baseRate * durationInfo.value * item.quantity;
+      const ruleCalculation = this.applyDurationPriceRule(
+        baseRentalAmount,
+        baseRate,
+        item,
+        product,
+        priceList,
+        durationInfo
+      );
+      const deposit = this.calculateDeposit(
+        product.rentalConfig,
+        ruleCalculation.rentalAmount,
+        item.quantity
+      );
+
+      const preparedItem: PreparedCartItem = {
+        item,
+        product,
+        variant,
+        rentalStart,
+        rentalEnd,
+        durationInfo,
+        baseRate,
+        rentalAmount: ruleCalculation.rentalAmount,
+        deposit,
+      };
+
+      if (!vendorGroupsMap.has(product.vendorId)) {
+        vendorGroupsMap.set(product.vendorId, {
+          vendorId: product.vendorId,
+          items: [],
+        });
+      }
+      vendorGroupsMap.get(product.vendorId)!.items.push(preparedItem);
+    }
+
+    const firstVendorId = Array.from(vendorGroupsMap.keys())[0];
+    const fulfillmentData = await this.resolveCreateFulfillmentData({
+      customerId,
+      vendorId: firstVendorId,
+      fulfillmentMethod: payload.fulfillmentMethod,
+      deliveryAddress: payload.deliveryAddress,
+      pickupAddress: payload.pickupAddress,
+      rentalStart: payload.rentalStart ?? new Date(),
+      rentalEnd: payload.rentalEnd ?? new Date(),
+      items: [],
+      notes: payload.notes,
+    });
+
+    const createdOrders: any[] = [];
+
+    await rentalOrderRepository.transaction(async (tx) => {
+      for (const [vendorId, group] of vendorGroupsMap.entries()) {
+        const rentalNumber = await rentalOrderRepository.generateRentalNumber(tx);
+
+        const earliestStart = group.items.reduce(
+          (min, it) => (it.rentalStart < min ? it.rentalStart : min),
+          group.items[0].rentalStart
+        );
+        const latestEnd = group.items.reduce(
+          (max, it) => (it.rentalEnd > max ? it.rentalEnd : max),
+          group.items[0].rentalEnd
+        );
+
+        const subtotal = group.items.reduce((sum, it) => sum + it.rentalAmount, 0);
+        const securityDepositAmount = group.items.reduce(
+          (sum, it) => sum + it.deposit,
+          0
+        );
+        const grandTotal = subtotal + securityDepositAmount;
+
+        const orderNotes = this.mergeNotes(payload.notes, [
+          `Fulfillment: ${payload.fulfillmentMethod}`,
+          `Payment Preference: ${payload.paymentMethod}`,
+          payload.paymentDetails?.transactionId
+            ? `Payment Txn ID: ${payload.paymentDetails.transactionId}`
+            : null,
+          payload.paymentDetails?.notes
+            ? `Payment Notes: ${payload.paymentDetails.notes}`
+            : null,
+        ]);
+
+        const order = await rentalOrderRepository.createRentalOrder(
+          {
+            rentalNumber,
+            customerId,
+            vendorId,
+            priceListId: priceList?.id ?? null,
+            status: EDITABLE_STATUS,
+            paymentStatus: payload.paymentDetails?.transactionId
+              ? "PAYMENT_SUBMITTED"
+              : "PENDING",
+            ...fulfillmentData,
+            rentalStart: earliestStart,
+            rentalEnd: latestEnd,
+            subtotal,
+            securityDepositAmount,
+            lateFee: 0,
+            grandTotal,
+            notes: orderNotes,
+            items: {
+              create: group.items.map((it) => ({
+                productId: it.item.productId,
+                variantId: it.item.variantId ?? null,
+                assetId: it.item.assetId ?? null,
+                quantity: it.item.quantity,
+                rentalPrice: it.baseRate,
+                deposit: it.deposit,
+                subtotal: it.rentalAmount,
+              })),
+            },
+            securityDeposit: {
+              create: {
+                amount: securityDepositAmount,
+                status: securityDepositAmount > 0 ? "PENDING" : "REFUNDED",
+              },
+            },
+          },
+          tx
+        );
+
+        if (payload.paymentDetails?.transactionId) {
+          await rentalOrderRepository.createPayment(
+            {
+              rentalOrderId: order.id,
+              amount: grandTotal,
+              method: payload.paymentMethod,
+              status: "PAYMENT_SUBMITTED",
+              transactionId: payload.paymentDetails.transactionId,
+              paymentProof: payload.paymentDetails.paymentProof ?? null,
+              paidAt: new Date(),
+              notes: this.formatPaymentNotes(
+                "UPI_PAYMENT_SUBMITTED",
+                payload.paymentDetails.notes
+              ),
+            },
+            tx
+          );
+        }
+
+        createdOrders.push(order);
+      }
+    });
+
+    for (const order of createdOrders) {
+      notificationService
+        .notify({
+          userId: order.vendorId,
+          title: "New Quotation Request (Cart Checkout)",
+          message: `A new rental order #${order.rentalNumber} has been placed by customer (${user.email}).`,
+          type: "QUOTATION_CREATED",
+          priority: "NORMAL",
+          actionUrl: `/vendor/operations/${order.id}`,
+          data: { orderId: order.id, rentalNumber: order.rentalNumber },
+          idempotencyKey: `cart_order_${order.id}`,
+        })
+        .catch((err) => console.error("Notification error:", err.message));
+
+      reminderService
+        .scheduleRentalReminders({
+          rentalOrderId: order.id,
+          userId: order.customerId,
+          rentalNumber: order.rentalNumber,
+          rentalStart: order.rentalStart,
+          rentalEnd: order.rentalEnd,
+        })
+        .catch((err) =>
+          console.error("Reminder scheduling error:", err.message)
+        );
+    }
+
+    return {
+      orders: createdOrders.map((o) => this.mapRentalOrder(o)),
+      orderCount: createdOrders.length,
+      rentalNumbers: createdOrders.map((o) => o.rentalNumber),
+    };
+  }
+
   async getRentalOrders(query: ListRentalOrdersQuery, user: ProductRequester) {
+
     const where = this.buildListWhere(query, user);
     const skip = (query.page - 1) * query.limit;
     const [orders, total] = await rentalOrderRepository.getRentalOrders(

@@ -155,3 +155,134 @@ export const previewRentalOrderSchema = z
   .superRefine(validateRentalDates);
 
 export type PreviewRentalOrderInput = z.infer<typeof previewRentalOrderSchema>;
+
+export const checkoutRentalOrderItemSchema = z
+  .object({
+    productId: idSchema,
+    variantId: z.preprocess(emptyStringToUndefined, idSchema.optional()),
+    assetId: z.preprocess(emptyStringToUndefined, idSchema.optional()),
+    quantity: z.coerce
+      .number({ invalid_type_error: "Quantity must be a number" })
+      .int("Quantity must be an integer")
+      .min(1, "Quantity must be greater than zero"),
+    rentalStart: optionalDate,
+    rentalEnd: optionalDate,
+  })
+  .strict();
+
+export const checkoutPreviewSchema = z
+  .object({
+    rentalStart: optionalDate,
+    rentalEnd: optionalDate,
+    items: z
+      .array(checkoutRentalOrderItemSchema)
+      .min(1, "At least one item is required in cart")
+      .max(50, "Cart can contain up to 50 items"),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.rentalStart && data.rentalEnd && data.rentalStart >= data.rentalEnd) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Default rental start must be before rental end",
+        path: ["rentalStart"],
+      });
+    }
+    data.items.forEach((item, index) => {
+      const start = item.rentalStart ?? data.rentalStart;
+      const end = item.rentalEnd ?? data.rentalEnd;
+      if (!start) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Rental start date is required for item #${index + 1}`,
+          path: ["items", index, "rentalStart"],
+        });
+      }
+      if (!end) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Rental end date is required for item #${index + 1}`,
+          path: ["items", index, "rentalEnd"],
+        });
+      }
+      if (start && end && start >= end) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Rental start must be before rental end for item #${index + 1}`,
+          path: ["items", index, "rentalStart"],
+        });
+      }
+    });
+  });
+
+export type CheckoutPreviewInput = z.infer<typeof checkoutPreviewSchema>;
+
+export const checkoutRentalOrderSchema = z
+  .object({
+    fulfillmentMethod: z
+      .enum(["HOME_DELIVERY", "STORE_PICKUP"])
+      .default("HOME_DELIVERY"),
+    deliveryAddress: addressSchema.optional(),
+    pickupAddress: addressSchema.optional(),
+    rentalStart: optionalDate,
+    rentalEnd: optionalDate,
+    paymentMethod: z
+      .enum(["CASH", "CARD", "UPI", "BANK_TRANSFER", "ONLINE"])
+      .default("UPI"),
+    paymentDetails: z
+      .object({
+        transactionId: z.string().optional(),
+        paymentProof: z.string().optional(),
+        notes: z.string().optional(),
+      })
+      .optional(),
+    notes: optionalText(1000),
+    items: z
+      .array(checkoutRentalOrderItemSchema)
+      .min(1, "At least one item is required in cart")
+      .max(50, "Cart can contain up to 50 items"),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.fulfillmentMethod === "HOME_DELIVERY" && !data.deliveryAddress) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryAddress"],
+        message: "Delivery address is required for home delivery",
+      });
+    }
+    if (data.fulfillmentMethod === "STORE_PICKUP" && !data.pickupAddress) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pickupAddress"],
+        message: "Pickup address is required for store pickup",
+      });
+    }
+    data.items.forEach((item, index) => {
+      const start = item.rentalStart ?? data.rentalStart;
+      const end = item.rentalEnd ?? data.rentalEnd;
+      if (!start) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Rental start date is required for item #${index + 1}`,
+          path: ["items", index, "rentalStart"],
+        });
+      }
+      if (!end) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Rental end date is required for item #${index + 1}`,
+          path: ["items", index, "rentalEnd"],
+        });
+      }
+      if (start && end && start >= end) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Rental start must be before rental end for item #${index + 1}`,
+          path: ["items", index, "rentalStart"],
+        });
+      }
+    });
+  });
+
+export type CheckoutRentalOrderInput = z.infer<typeof checkoutRentalOrderSchema>;

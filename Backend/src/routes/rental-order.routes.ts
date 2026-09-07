@@ -32,6 +32,8 @@ import {
   requestRentalOrderExtension,
   approveRentalOrderExtension,
   rejectRentalOrderExtension,
+  previewCheckout,
+  checkoutRentalOrders,
 } from "../controllers/rental-order.controller";
 import { requireRole, verifyJWT } from "../middleware/auth.middleware";
 
@@ -230,6 +232,46 @@ router.post("/", requireRole(["ADMIN", "VENDOR", "CUSTOMER"]), createRentalOrder
  *         description: Rental order preview calculated successfully
  */
 router.post("/preview", requireRole(["ADMIN", "VENDOR", "CUSTOMER"]), previewRentalOrder);
+
+/**
+ * @swagger
+ * /api/rental-orders/checkout-preview:
+ *   post:
+ *     summary: Preview multi-item cart checkout totals, duration, deposits, and per-vendor breakdowns
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Cart checkout preview calculated successfully
+ */
+router.post("/checkout-preview", requireRole(["ADMIN", "VENDOR", "CUSTOMER"]), previewCheckout);
+
+/**
+ * @swagger
+ * /api/rental-orders/checkout:
+ *   post:
+ *     summary: Place rental orders for multi-item cart with shipping and payment details
+ *     tags: [Rental Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Rental order(s) created successfully from cart
+ */
+router.post("/checkout", requireRole(["ADMIN", "VENDOR", "CUSTOMER"]), checkoutRentalOrders);
 
 /**
  * @swagger
