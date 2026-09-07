@@ -199,6 +199,12 @@ router.put(
   requireRole(["ADMIN", "VENDOR"]),
   updateQuotationTemplate
 );
+router.patch(
+  "/:id",
+  verifyJWT,
+  requireRole(["ADMIN", "VENDOR"]),
+  updateQuotationTemplate
+);
 
 /**
  * @swagger

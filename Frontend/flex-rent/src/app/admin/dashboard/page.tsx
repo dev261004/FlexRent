@@ -288,23 +288,11 @@ export default function AdminOverviewPage() {
                     );
                   })
                 ) : (
-                  // Fallback to mock data if empty
-                  MOCK_OPERATIONS.slice(0, 5).map((op) => (
-                    <tr
-                      key={op.id}
-                      className="transition hover:bg-accent/[0.035]"
-                    >
-                      <td className="px-5 py-4 font-mono text-xs font-semibold text-text sm:px-6">
-                        {op.orderId}
-                      </td>
-                      <td className="px-5 py-4 font-medium text-text">{op.customer}</td>
-                      <td className="px-5 py-4 text-chalk">{op.product}</td>
-                      <td className="px-5 py-4 text-chalk">{op.scheduledAt}</td>
-                      <td className="px-5 py-4 sm:px-6">
-                        <StatusBadge status={op.status} />
-                      </td>
-                    </tr>
-                  ))
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-xs text-chalk">
+                      No rental operations found. New orders will appear here once booked.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
