@@ -63,4 +63,36 @@ export interface QuotationTemplate {
   name: string;
   header: string;
   footer: string;
+  isDefault?: boolean;
+  isActive?: boolean;
+  validityDays?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateQuotationTemplateInput {
+  name: string;
+  header: string;
+  footer: string;
+  isDefault?: boolean;
+  isActive?: boolean;
+  validityDays?: number;
+}
+
+export interface UpdateQuotationTemplateInput {
+  name?: string;
+  header?: string;
+  footer?: string;
+  isDefault?: boolean;
+  isActive?: boolean;
+  validityDays?: number;
+}
+
+export interface ListQuotationTemplatesParams {
+  search?: string;
+  isActive?: boolean;
+  page?: number;
+  limit?: number;
+  sortBy?: "name" | "createdAt" | "updatedAt" | "validityDays";
+  sortOrder?: "asc" | "desc";
 }
