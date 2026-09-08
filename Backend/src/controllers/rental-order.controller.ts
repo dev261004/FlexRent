@@ -463,7 +463,8 @@ export const getRentalOrderInvoice = asyncHandler(
         res.setHeader("Content-Disposition", `attachment; filename="Invoice-${invoice.orderNumber}.html"`);
       }
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      return res.send(html);
+      res.send(html);
+      return;
     }
 
     res.json({

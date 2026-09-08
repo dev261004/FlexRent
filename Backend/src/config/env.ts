@@ -35,7 +35,7 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string({ required_error: "Cloudinary cloud name is missing in .env" }).min(1),
   CLOUDINARY_API_KEY: z.string({ required_error: "Cloudinary API key is missing in .env" }).min(1),
   CLOUDINARY_API_SECRET: z.string({ required_error: "Cloudinary API secret is missing in .env" }).min(1),
-  REDIS_URL: z.string().min(1).default("redis://localhost:6379"),
+  REDIS_URL: z.string().min(1).default("redis://127.0.0.1:6379"),
 });
 
 let parsedEnv: z.infer<typeof envSchema>;

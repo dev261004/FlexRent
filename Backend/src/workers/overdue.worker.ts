@@ -33,8 +33,11 @@ export const startOverdueWorker = (): Worker => {
     console.error(`❌ [Overdue Worker] Job ${job?.id} failed:`, error.message);
   });
 
-  worker.on("error", (error) => {
-    console.error("❌ [Overdue Worker] Worker error:", error.message);
+  worker.on("error", (error: any) => {
+    if (error?.code === "ECONNREFUSED" || error?.message?.includes("ECONNREFUSED")) {
+      return;
+    }
+    console.error("❌ [Overdue Worker] Worker error:", error?.message || error);
   });
 
   console.log("✅ Overdue detection worker started");

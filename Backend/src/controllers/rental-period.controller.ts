@@ -1,3 +1,4 @@
+import { Prisma, RentalPeriodUnit } from "@prisma/client";
 import { Request, Response } from "express";
 import { prisma } from "../config/prisma";
 import { AppError, asyncHandler } from "../middleware/error.middleware";
@@ -114,15 +115,16 @@ export const updateRentalPeriod = asyncHandler(
       });
     }
 
+    const updateData: Prisma.RentalPeriodUpdateInput = {};
+    if (payload.name !== undefined) updateData.name = payload.name;
+    if (payload.unit !== undefined) updateData.unit = payload.unit;
+    if (payload.duration !== undefined) updateData.duration = payload.duration;
+    if (payload.isDefault !== undefined) updateData.isDefault = payload.isDefault;
+    if (payload.isActive !== undefined) updateData.isActive = payload.isActive;
+
     const updated = await prisma.rentalPeriod.update({
       where: { id },
-      data: {
-        name: payload.name,
-        unit: payload.unit,
-        duration: payload.duration,
-        isDefault: payload.isDefault,
-        isActive: payload.isActive,
-      },
+      data: updateData,
     });
 
     res.json({
@@ -155,11 +157,12 @@ export const deleteRentalPeriod = asyncHandler(
         where: { id },
         data: { isActive: false, isDefault: false },
       });
-      return res.json({
+      res.json({
         success: true,
         message: "Rental period in use by products; set to inactive",
         data: { rentalPeriod: deactivated },
       });
+      return;
     }
 
     const deleted = await prisma.rentalPeriod.delete({

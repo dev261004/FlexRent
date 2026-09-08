@@ -38,8 +38,11 @@ export const startReminderWorker = (): Worker => {
     );
   });
 
-  worker.on("error", (error) => {
-    console.error("❌ Reminder worker error:", error.message);
+  worker.on("error", (error: any) => {
+    if (error?.code === "ECONNREFUSED" || error?.message?.includes("ECONNREFUSED")) {
+      return;
+    }
+    console.error("❌ Reminder worker error:", error?.message || error);
   });
 
   console.log("✅ Reminder worker started");

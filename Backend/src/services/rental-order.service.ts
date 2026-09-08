@@ -480,7 +480,7 @@ export class RentalOrderService {
         );
         const grandTotal = subtotal + securityDepositAmount;
 
-        const orderNotes = this.mergeNotes(payload.notes, [
+        const orderNotes = this.mergeNotes(payload.notes ?? null, [
           `Fulfillment: ${payload.fulfillmentMethod}`,
           `Payment Preference: ${payload.paymentMethod}`,
           payload.paymentDetails?.transactionId
@@ -565,7 +565,7 @@ export class RentalOrderService {
           data: { orderId: order.id, rentalNumber: order.rentalNumber },
           idempotencyKey: `cart_order_${order.id}`,
         })
-        .catch((err) => console.error("Notification error:", err.message));
+        .catch((err: any) => console.error("Notification error:", err.message));
 
       reminderService
         .scheduleRentalReminders({
@@ -575,7 +575,7 @@ export class RentalOrderService {
           rentalStart: order.rentalStart,
           rentalEnd: order.rentalEnd,
         })
-        .catch((err) =>
+        .catch((err: any) =>
           console.error("Reminder scheduling error:", err.message)
         );
     }
@@ -1247,9 +1247,9 @@ export class RentalOrderService {
       requestedEnd: preview.newRentalEnd,
       originalEnd: preview.currentRentalEnd,
       additionalDays: preview.additionalDays,
-      additionalRentalFee: preview.additionalRentalFee,
-      additionalDeposit: preview.additionalDeposit,
-      additionalGrandTotal: preview.additionalGrandTotal,
+      additionalRentalFee: preview.additionalRentalFee ?? "0",
+      additionalDeposit: preview.additionalDeposit ?? "0",
+      additionalGrandTotal: preview.additionalGrandTotal ?? "0",
       reason: payload.reason ?? null,
       requestedAt: new Date().toISOString(),
     };
@@ -1278,7 +1278,7 @@ export class RentalOrderService {
         },
         idempotencyKey: `ext_req_${order.id}_${Date.now()}`,
       })
-      .catch((err) => console.error("Notification error:", err.message));
+      .catch((err: any) => console.error("Notification error:", err.message));
 
     return this.mapRentalOrder(updatedOrder);
   }
@@ -1342,7 +1342,7 @@ export class RentalOrderService {
         .updateSecurityDeposit(order.id, {
           amount: toNumber(order.securityDeposit.amount) + additionalDeposit,
         })
-        .catch((err) => console.error("Deposit update error:", err.message));
+        .catch((err: any) => console.error("Deposit update error:", err.message));
     }
 
     if (additionalGrandTotal > 0) {
@@ -1354,7 +1354,7 @@ export class RentalOrderService {
           status: "PENDING",
           remarks: `Extension charge for ${extension.additionalDays} additional days until ${newRentalEnd.toLocaleDateString("en-IN")}`,
         })
-        .catch((err) => console.error("Payment create error:", err.message));
+        .catch((err: any) => console.error("Payment create error:", err.message));
     }
 
     reminderService
@@ -1365,7 +1365,7 @@ export class RentalOrderService {
         rentalStart: updatedOrder.rentalStart,
         rentalEnd: newRentalEnd,
       })
-      .catch((err) => console.error("Reminder reschedule error:", err.message));
+      .catch((err: any) => console.error("Reminder reschedule error:", err.message));
 
     notificationService
       .notify({
@@ -1383,7 +1383,7 @@ export class RentalOrderService {
         },
         idempotencyKey: `ext_app_${order.id}_${Date.now()}`,
       })
-      .catch((err) => console.error("Notification error:", err.message));
+      .catch((err: any) => console.error("Notification error:", err.message));
 
     return this.mapRentalOrder(updatedOrder);
   }
@@ -1432,7 +1432,7 @@ export class RentalOrderService {
         },
         idempotencyKey: `ext_rej_${order.id}_${Date.now()}`,
       })
-      .catch((err) => console.error("Notification error:", err.message));
+      .catch((err: any) => console.error("Notification error:", err.message));
 
     return this.mapRentalOrder(updatedOrder);
   }
@@ -2262,9 +2262,12 @@ export class RentalOrderService {
       }
     }
 
+    const days = Math.max(1, Math.ceil(milliseconds / (1000 * 60 * 60 * 24)));
+
     return {
       value: durationValue,
       unit: unit,
+      days,
     };
   }
 
@@ -2695,7 +2698,10 @@ export class RentalOrderService {
     return lines.join("\n\n");
   }
 
-  private mergeNotes(existingNotes: string | null, entries: Array<string | null>): string {
+  private mergeNotes(
+    existingNotes: string | null | undefined,
+    entries: Array<string | null | undefined>
+  ): string {
     const newNotes = entries.filter(Boolean).join("\n");
     return [existingNotes, newNotes].filter(Boolean).join("\n\n");
   }

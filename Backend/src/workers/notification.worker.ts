@@ -38,8 +38,11 @@ export const startNotificationWorker = (): Worker => {
     );
   });
 
-  worker.on("error", (error) => {
-    console.error("❌ Notification worker error:", error.message);
+  worker.on("error", (error: any) => {
+    if (error?.code === "ECONNREFUSED" || error?.message?.includes("ECONNREFUSED")) {
+      return;
+    }
+    console.error("❌ Notification worker error:", error?.message || error);
   });
 
   console.log("✅ Notification worker started");

@@ -72,6 +72,11 @@ export class QuotationTemplateRepository {
         CREATE INDEX IF NOT EXISTS "QuotationTemplate_isActive_idx" ON "QuotationTemplate"("isActive");
       `);
 
+      // Ensure updatedAt has a default in case it was created by Prisma migration without default
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "QuotationTemplate" ALTER COLUMN "updatedAt" SET DEFAULT CURRENT_TIMESTAMP;
+      `).catch(() => {});
+
       // Check if table is empty to seed initial templates
       const countResult: any = await prisma.$queryRawUnsafe(
         `SELECT COUNT(*)::int as count FROM "QuotationTemplate"`
@@ -83,9 +88,9 @@ export class QuotationTemplateRepository {
         const id2 = `qt_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
 
         await prisma.$executeRawUnsafe(
-          `INSERT INTO "QuotationTemplate" ("id", "name", "header", "footer", "isDefault", "isActive", "validityDays")
-           VALUES ($1, $2, $3, $4, $5, $6, $7),
-                  ($8, $9, $10, $11, $12, $13, $14)
+          `INSERT INTO "QuotationTemplate" ("id", "name", "header", "footer", "isDefault", "isActive", "validityDays", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()),
+                  ($8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
            ON CONFLICT ("name") DO NOTHING;`,
           id1,
           "Standard Quotation",
