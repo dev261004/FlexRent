@@ -21,7 +21,6 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { Panel } from "@/components/admin/Panel";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { MOCK_QUOTATION_TEMPLATES } from "@/features/admin/data/mockQuotations";
 import {
   getQuotationTemplates,
   createQuotationTemplate,
@@ -91,42 +90,25 @@ export default function AdminQuotationsPage() {
   const namePreview = watch("name");
   const validityPreview = watch("validityDays");
 
-  // Fetch templates from backend with fallback
+  // Fetch templates from backend
   const fetchTemplates = useCallback(async () => {
     try {
       setIsLoading(true);
       const res = await getQuotationTemplates();
-      if (res?.quotationTemplates && res.quotationTemplates.length > 0) {
-        setTemplates(res.quotationTemplates);
-        if (!selectedId || !res.quotationTemplates.some((t) => t.id === selectedId)) {
-          const defaultTpl =
-            res.quotationTemplates.find((t) => t.isDefault) ??
-            res.quotationTemplates[0];
+      const tpls = res?.quotationTemplates || [];
+      setTemplates(tpls);
+      if (tpls.length > 0) {
+        if (!selectedId || !tpls.some((t) => t.id === selectedId)) {
+          const defaultTpl = tpls.find((t) => t.isDefault) ?? tpls[0];
           setSelectedId(defaultTpl ? defaultTpl.id : "");
         }
       } else {
-        // Fallback to mock data if empty
-        setTemplates(
-          MOCK_QUOTATION_TEMPLATES.map((m, idx) => ({
-            ...m,
-            isDefault: idx === 0,
-            isActive: true,
-            validityDays: 30,
-          }))
-        );
-        setSelectedId(MOCK_QUOTATION_TEMPLATES[0]?.id ?? "");
+        setSelectedId("");
       }
     } catch {
-      // Graceful fallback to mock data
-      setTemplates(
-        MOCK_QUOTATION_TEMPLATES.map((m, idx) => ({
-          ...m,
-          isDefault: idx === 0,
-          isActive: true,
-          validityDays: 30,
-        }))
-      );
-      setSelectedId(MOCK_QUOTATION_TEMPLATES[0]?.id ?? "");
+      toast.error("Failed to load quotation templates");
+      setTemplates([]);
+      setSelectedId("");
     } finally {
       setIsLoading(false);
     }
@@ -353,8 +335,10 @@ export default function AdminQuotationsPage() {
                 <p className="text-xs">Loading templates...</p>
               </div>
             ) : filteredTemplates.length === 0 ? (
-              <div className="py-10 text-center text-xs text-chalk">
-                No templates found matching your search.
+              <div className="py-10 text-center text-xs text-chalk px-4">
+                {searchQuery
+                  ? "No templates found matching your search."
+                  : "No quotation templates yet. Click \"New Template\" above to create one."}
               </div>
             ) : (
               <ul className="divide-y divide-white/5">
